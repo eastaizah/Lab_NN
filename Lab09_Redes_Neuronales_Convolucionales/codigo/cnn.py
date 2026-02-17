@@ -546,14 +546,7 @@ class CNN:
 # PARTE 6: CNN CON PYTORCH (EJEMPLO PRÁCTICO CON MNIST)
 # =============================================================================
 
-if PYTORCH_AVAILABLE:
-    class CNNPyTorchBase(nn.Module):
-        pass
-else:
-    class CNNPyTorchBase:
-        pass
-
-class CNNPyTorch(CNNPyTorchBase):
+class CNNPyTorch(nn.Module if PYTORCH_AVAILABLE else object):
     """
     Red Neuronal Convolucional implementada con PyTorch.
     
@@ -1044,7 +1037,14 @@ if __name__ == "__main__":
         print("  Instale PyTorch y torchvision para usar esta funcionalidad:")
         print("  pip install torch torchvision")
     else:
-        respuesta = input("\n¿Desea entrenar la CNN en MNIST? (s/n): ").lower()
+        import sys
+        # Soportar modo no-interactivo para pruebas automáticas
+        if '--entrenar' in sys.argv:
+            respuesta = 's'
+        elif '--no-entrenar' in sys.argv:
+            respuesta = 'n'
+        else:
+            respuesta = input("\n¿Desea entrenar la CNN en MNIST? (s/n): ").lower()
     
         if respuesta == 's':
             try:
