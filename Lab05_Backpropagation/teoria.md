@@ -4,7 +4,7 @@
 
 **Backpropagation** (propagación hacia atrás) es el algoritmo fundamental que hace posible el entrenamiento de redes neuronales profundas. Es el método mediante el cual calculamos los gradientes de la función de pérdida con respecto a todos los parámetros de la red.
 
-##¿Qué es Backpropagation?
+## ¿Qué es Backpropagation?
 
 Backpropagation es la aplicación inteligente de la **regla de la cadena del cálculo** para calcular gradientes de manera eficiente en redes neuronales.
 
