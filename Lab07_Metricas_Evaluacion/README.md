@@ -1,4 +1,4 @@
-# Lab 07b: Métricas de Evaluación y Matriz de Confusión
+# Lab 07: Métricas de Evaluación y Matriz de Confusión
 
 ## Objetivos
 
@@ -12,7 +12,7 @@
 ## Estructura
 
 ```
-Lab07b_Metricas_Evaluacion/
+Lab07_Metricas_Evaluacion/
 ├── README.md
 ├── teoria.md
 ├── practica.ipynb
