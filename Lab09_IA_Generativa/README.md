@@ -1,4 +1,4 @@
-# Lab 08: IA Generativa
+# Lab 09: IA Generativa
 
 ## Objetivos
 1. Comprender modelos generativos vs discriminativos

@@ -1,4 +1,4 @@
-# Lab 10: Redes Neuronales Recurrentes y LSTM
+# Lab 11: Redes Neuronales Recurrentes y LSTM
 
 ## Descripción
 
@@ -214,7 +214,7 @@ Encoder RNN → Context Vector → Decoder RNN
 ### Attention Mechanism
 - Permite enfocarse en partes relevantes del input
 - Mejora significativa sobre encoder-decoder básico
-- Base para Transformers (Lab 11)
+- Base para Transformers (Lab 12)
 
 ## Notas Importantes
 
@@ -264,7 +264,7 @@ Para hidden_size=h, input_size=x, output_size=y:
 
 Una vez completes este laboratorio, continúa con:
 
-👉 **[Lab 11: Transformers](../Lab11_Transformers/)**
+👉 **[Lab 12: Transformers](../Lab12_Transformers/)**
 
 Exploraremos la arquitectura que revolucionó el NLP y está transformando todo el deep learning.
 

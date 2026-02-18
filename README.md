@@ -40,35 +40,41 @@ Proceso completo de entrenamiento de una red neuronal.
 - Práctica: Entrenamiento con datos reales
 - Código: Loop de entrenamiento completo
 
-### [Lab 07: Frameworks de Deep Learning](Lab07_Frameworks_DeepLearning/)
+### [Lab 07: Métricas de Evaluación y Matriz de Confusión](Lab07_Metricas_Evaluacion/)
+Evaluación rigurosa de modelos de clasificación.
+- Teoría: Matriz de confusión, Accuracy, Precision, Recall, F1-Score
+- Práctica: Validación cruzada, datasets balanceados y desbalanceados
+- Código: Implementación de métricas desde cero, optimización de umbrales
+
+### [Lab 08: Frameworks de Deep Learning](Lab08_Frameworks_DeepLearning/)
 Introducción a PyTorch y TensorFlow.
 - Teoría: Ventajas de usar frameworks
 - Práctica: Comparación de implementaciones
 - Código: Redes neuronales con PyTorch y TensorFlow
 
-### [Lab 09: Redes Neuronales Convolucionales (CNN)](Lab09_Redes_Neuronales_Convolucionales/)
+### [Lab 09: Inteligencia Artificial Generativa](Lab09_IA_Generativa/)
+Introducción a modelos generativos modernos.
+- Teoría: VAE, GAN, Diffusion Models, aplicaciones con Transformers
+- Práctica: Tipos de modelos generativos, generación de contenido
+- Código: Modelo generativo simple, integración con arquitecturas modernas
+
+### [Lab 10: Redes Neuronales Convolucionales (CNN)](Lab10_Redes_Neuronales_Convolucionales/)
 Arquitecturas especializadas para procesamiento de imágenes y visión computacional.
 - Teoría: Convolución, pooling, arquitecturas famosas (LeNet, ResNet, VGG)
 - Práctica: Implementación de CNN desde cero, clasificación de imágenes
 - Código: Capas convolucionales, filtros, CNN completa en PyTorch
 
-### [Lab 10: Redes Neuronales Recurrentes y LSTM](Lab10_Redes_Neuronales_Recurrentes_LSTM/)
+### [Lab 11: Redes Neuronales Recurrentes y LSTM](Lab11_Redes_Neuronales_Recurrentes_LSTM/)
 Arquitecturas para datos secuenciales como texto y series de tiempo.
 - Teoría: RNN, LSTM, GRU, problema del gradiente que desaparece
 - Práctica: Procesamiento de secuencias, predicción de series temporales
 - Código: RNN y LSTM desde cero, clasificación de texto, generación
 
-### [Lab 11: Transformers](Lab11_Transformers/)
+### [Lab 12: Transformers](Lab12_Transformers/)
 Arquitectura revolucionaria basada en atención para NLP y más.
 - Teoría: Self-Attention, Multi-Head Attention, BERT, GPT, Vision Transformers
 - Práctica: Implementación de Transformers, fine-tuning de modelos
 - Código: Attention desde cero, Hugging Face, aplicaciones modernas
-
-### [Lab 08: Inteligencia Artificial Generativa](Lab08_IA_Generativa/)
-Introducción a modelos generativos modernos.
-- Teoría: VAE, GAN, Diffusion Models, aplicaciones con Transformers
-- Práctica: Tipos de modelos generativos, generación de contenido
-- Código: Modelo generativo simple, integración con arquitecturas modernas
 
 ## 🚀 Cómo Empezar
 
@@ -118,21 +124,22 @@ Este curso sigue una filosofía didáctica basada en "Neural Networks from Scrat
 
 El curso está organizado en **tres módulos pedagógicos**:
 
-### Módulo 1: Fundamentos (Labs 01-06)
+### Módulo 1: Fundamentos (Labs 01-07)
 Construcción de redes neuronales desde cero con NumPy
 - Neuronas y arquitecturas básicas
 - Funciones de activación y pérdida
 - Backpropagation y optimización
 - Entrenamiento completo
+- **Evaluación y métricas de clasificación**
 
-### Módulo 2: Frameworks y Arquitecturas Modernas (Labs 07, 09-11)
+### Módulo 2: Frameworks y Arquitecturas Modernas (Labs 08, 10-12)
 Arquitecturas especializadas y herramientas profesionales
 - PyTorch y TensorFlow
 - **CNNs** para visión computacional
 - **RNNs/LSTMs** para secuencias y texto
 - **Transformers** para NLP y aplicaciones multimodales
 
-### Módulo 3: IA Generativa (Lab 08)
+### Módulo 3: IA Generativa (Lab 09)
 Modelos generativos modernos
 - VAEs y GANs
 - Diffusion Models

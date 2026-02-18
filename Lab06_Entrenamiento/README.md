@@ -88,7 +88,7 @@ Hidden layers: 2
 - [ ] Puedo implementar early stopping
 
 ## Próximo Lab
-**Lab 07**: Frameworks de Deep Learning (PyTorch, TensorFlow)
+**Lab 07**: Métricas de Evaluación y Matriz de Confusión
 
 ---
 **¡El entrenamiento es donde todo cobra vida! 🚀**
