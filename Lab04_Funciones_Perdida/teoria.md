@@ -354,6 +354,26 @@ Loss_total = Loss_original + λ * Σ|w|
 ```
 - Genera sparsity (algunos pesos = 0)
 
+**Dropout**:
+El dropout es una técnica de regularización en redes neuronales que desactiva aleatoriamente un porcentaje de neuronas durante el entrenamiento (típicamente entre 20% y 50%). Esto evita que la red dependa excesivamente de neuronas específicas, reduciendo el sobreajuste (overfitting) y forzando al modelo a aprender patrones más generales y robustos.
+
+¿Cómo funciona?
+
+- Entrenamiento: En cada iteración (batch), se selecciona una probabilidad 
+ (tasa de dropout) y se apagan aleatoriamente esa fracción de neuronas, impidiéndoles contribuir a la propagación hacia adelante y atrás.
+- Inferencia (Prueba): Se activan todas las neuronas, pero sus pesos se escalan (multiplican) por para equilibrar la menor actividad durante el entrenamiento.
+
+Ejemplo Práctico:
+Imagina una red neuronal donde una capa oculta tiene 100 neuronas y aplicas un Dropout del 50% (p=0.5):
+- Iteración 1: El algoritmo desactiva aleatoriamente 50 neuronas. El modelo aprende con las otras 50.
+- Iteración 2: Se seleccionan otras 50 neuronas al azar para apagar, y el modelo entrena con un subconjunto distinto.
+- Resultado: Ninguna neurona se vuelve indispensable, lo que mejora la generalización. 
+
+Beneficios:
+- Reduce el sobreajuste: Impide que las neuronas co-adapten sus pesos de forma compleja.
+- Mejora la robustez: Crea redes más fiables al no depender de una "neurona estrella".
+- Efecto de ensamble: Funciona como si entrenaras múltiples sub-redes diferentes simultáneamente.
+
 ## Métricas vs Pérdidas
 
 **Pérdida**: Lo que optimizamos
