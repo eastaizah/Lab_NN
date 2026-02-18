@@ -2112,6 +2112,1059 @@ def analisis_completo_vae(vae, X_test, y_test):
 
 ---
 
+## 🎯 EJERCICIOS PROPUESTOS
+
+### Ejercicio 1: VAE Básico para Dígitos (Básico)
+**Objetivo**: Consolidar comprensión de Variational Autoencoders.
+
+**Tareas**:
+1. Implementa un VAE completo para MNIST con:
+   - Encoder: 784 → 256 → 128 → (μ, σ) de dimensión latente 2
+   - Decoder: 2 → 128 → 256 → 784
+   - Función de pérdida combinada (reconstrucción + KL)
+2. Añade métodos para:
+   - Encode: imagen → distribución latente (μ, σ)
+   - Decode: código latente → imagen reconstruida
+   - Sample: generar nuevas imágenes desde N(0,1)
+   - Interpolate: transición suave entre dos imágenes
+3. Visualiza:
+   - Reconstrucciones vs originales
+   - Grid de generaciones aleatorias
+   - Espacio latente coloreado por clases
+
+```python
+# Esqueleto
+class VAE_MNIST:
+    def __init__(self, latent_dim=2):
+        # Encoder
+        self.encoder = nn.Sequential(...)
+        self.fc_mu = nn.Linear(128, latent_dim)
+        self.fc_logvar = nn.Linear(128, latent_dim)
+        
+        # Decoder
+        self.decoder = nn.Sequential(...)
+    
+    def encode(self, x):
+        # Tu código aquí
+        pass
+    
+    def reparameterize(self, mu, logvar):
+        # Tu código aquí
+        pass
+    
+    def decode(self, z):
+        # Tu código aquí
+        pass
+    
+    def forward(self, x):
+        # Tu código aquí
+        pass
+    
+    def loss_function(self, recon_x, x, mu, logvar):
+        # Reconstrucción + KL divergence
+        pass
+```
+
+**Preguntas de Reflexión**:
+- ¿Qué sucede si aumentas/disminuyes la dimensión latente?
+- ¿Cómo afecta el peso de KL divergence a las reconstrucciones?
+- ¿Por qué algunas regiones del espacio latente generan imágenes borrosas?
+
+### Ejercicio 2: GAN para Generación de Dígitos (Intermedio)
+**Objetivo**: Implementar y entrenar un GAN básico.
+
+**Tareas**:
+1. Implementa DCGAN (Deep Convolutional GAN) para MNIST:
+   - Generador: z(100) → 128×7×7 → 64×14×14 → 1×28×28
+   - Discriminador: 1×28×28 → 64×14×14 → 128×7×7 → 1
+   - Usa BatchNorm y LeakyReLU
+2. Implementa estrategias de estabilización:
+   - Label smoothing (real=0.9, fake=0.1)
+   - Añadir ruido a inputs del discriminador
+   - Actualizar D y G en proporción adecuada
+3. Monitorea durante entrenamiento:
+   - Pérdidas de G y D
+   - Calidad visual de generaciones cada época
+   - Detección temprana de mode collapse
+
+```python
+class Generator(nn.Module):
+    def __init__(self, z_dim=100):
+        super().__init__()
+        # Tu código aquí
+        pass
+    
+    def forward(self, z):
+        # Tu código aquí
+        pass
+
+class Discriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # Tu código aquí
+        pass
+    
+    def forward(self, x):
+        # Tu código aquí
+        pass
+
+def train_gan(generator, discriminator, dataloader, epochs=50):
+    # Implementar entrenamiento alternado
+    pass
+```
+
+**Desafíos**:
+- ¿Qué proporción D:G funciona mejor? (1:1, 2:1, 5:1)
+- ¿Cómo detectas mode collapse en las generaciones?
+- ¿Qué técnicas evitan que G o D dominen completamente?
+
+### Ejercicio 3: Exploración de Espacio Latente (Avanzado)
+**Objetivo**: Entender la estructura del espacio latente.
+
+**Tareas**:
+1. Implementa operaciones en espacio latente:
+   - **Interpolación lineal**: z₁ → z₂ (slerp vs lerp)
+   - **Aritmética vectorial**: "dígito con estilo A" - "estilo A" + "estilo B"
+   - **Sampling dirigido**: generar con características específicas
+2. Analiza la estructura:
+   - Visualiza manifold en 2D/3D (t-SNE, UMAP)
+   - Identifica "direcciones significativas" en espacio latente
+   - Mide continuidad y suavidad (interpolaciones)
+3. Compara VAE vs GAN:
+   - Estructura del espacio latente
+   - Interpolaciones (suavidad)
+   - Control sobre atributos
+
+```python
+def interpolate_latent(model, z1, z2, steps=10, method='linear'):
+    """
+    Interpola entre dos puntos en espacio latente
+    
+    Args:
+        method: 'linear' (lerp) o 'spherical' (slerp)
+    """
+    # Tu código aquí
+    pass
+
+def latent_arithmetic(encoder, images_a, images_b, images_c):
+    """
+    Realiza aritmética: z_a - z_b + z_c
+    """
+    # Tu código aquí
+    pass
+
+def find_latent_directions(vae, dataset, attribute):
+    """
+    Encuentra dirección en espacio latente que controla un atributo
+    """
+    # Tu código aquí
+    pass
+```
+
+### Ejercicio 4: Conditional GAN (Desafío)
+**Objetivo**: Añadir control sobre la generación.
+
+**Tareas**:
+1. Extiende tu GAN para ser condicional (cGAN):
+   - Generador: (z, clase) → imagen de esa clase
+   - Discriminador: (imagen, clase) → real/fake
+   - Embedding de clases (0-9 para MNIST)
+2. Implementa generación controlada:
+   - Generar dígitos específicos bajo demanda
+   - Transición entre clases (morphing)
+   - Combinar características de múltiples clases
+3. Experimenta con otros condicionamientos:
+   - Texto → Imagen (si usas dataset apropiado)
+   - Estilo → Imagen
+   - Sketch → Imagen completa
+
+**Arquitectura Sugerida**:
+```python
+class ConditionalGenerator(nn.Module):
+    def __init__(self, z_dim=100, num_classes=10, embed_dim=50):
+        super().__init__()
+        self.embed = nn.Embedding(num_classes, embed_dim)
+        # Concatenar z + embedding
+        # Tu código aquí
+        pass
+```
+
+### Ejercicio 5: Proyecto Integrador - Sistema Generativo Completo (Proyecto)
+**Objetivo**: Aplicar todo lo aprendido en un proyecto completo.
+
+**Proyecto**: Sistema de generación y edición de imágenes
+
+**Componentes**:
+1. **VAE para comprensión de datos**:
+   - Encoder para mapear imágenes → espacio latente
+   - Análisis de distribución y clusters
+   - Interpolación entre ejemplos reales
+
+2. **GAN para generación de alta calidad**:
+   - Generar nuevas imágenes realistas
+   - Control mediante conditional GAN
+   - Estabilización y monitoreo
+
+3. **Interfaz interactiva**:
+   - Subir imagen → obtener código latente
+   - Editar en espacio latente → ver resultado
+   - Generar bajo demanda con clase específica
+   - Galería de mejores generaciones
+
+**Tareas del Proyecto**:
+1. Entrenar VAE y GAN en el mismo dataset (MNIST, Fashion-MNIST, o CelebA)
+2. Implementar las funcionalidades descritas
+3. Crear visualizaciones comparativas (VAE vs GAN)
+4. Documentar:
+   - Arquitecturas y decisiones de diseño
+   - Hiperparámetros óptimos encontrados
+   - Problemas encontrados y soluciones
+   - Ejemplos de resultados exitosos
+5. (Bonus) Crear demo con Gradio o Streamlit
+
+**Métricas de Evaluación**:
+- Calidad visual (inspección manual)
+- FID (Fréchet Inception Distance) si tienes recursos
+- Cobertura del espacio de datos (diversidad)
+- Tiempo de entrenamiento y generación
+
+---
+
+## 📝 Entregables
+
+Para completar este laboratorio, debes entregar:
+
+### 1. Código Implementado (60%)
+- **Archivo `vae.py`** con implementación completa de VAE
+  - Clase VAE con encoder, decoder, reparameterization trick
+  - Función de pérdida (reconstrucción + KL divergence)
+  - Funciones de generación y visualización
+  - Docstrings completas en todas las funciones
+
+- **Archivo `gan.py`** con implementación completa de GAN
+  - Clases Generator y Discriminator
+  - Función de entrenamiento con alternancia
+  - Monitoreo de pérdidas y generación de samples
+  - Detección de mode collapse
+
+- **Archivo `utils.py`** con utilidades
+  - Funciones de visualización
+  - Métricas de evaluación
+  - Interpolación y aritmética latente
+  - Procesamiento de datos
+
+- **Tests unitarios** en `tests/`
+  - Verificar dimensiones correctas
+  - Validar pérdidas
+  - Comprobar generación funciona
+
+**Requisitos de Código**:
+- Código limpio, comentado y bien estructurado
+- Nombres de variables descriptivos
+- Manejo apropiado de errores
+- Eficiente (uso de GPU si disponible)
+
+### 2. Notebooks de Experimentación (25%)
+- **`01_autoencoder_basico.ipynb`**
+  - Implementación de autoencoder simple
+  - Visualización de reconstrucciones
+  - Análisis de compresión
+
+- **`02_vae_completo.ipynb`**
+  - VAE con todas sus componentes
+  - Exploración de espacio latente
+  - Generación e interpolación
+  - Análisis de distribuciones
+
+- **`03_gan_entrenamiento.ipynb`**
+  - Implementación y entrenamiento de GAN
+  - Monitoreo de pérdidas
+  - Análisis de estabilidad
+  - Comparación con VAE
+
+- **`04_analisis_comparativo.ipynb`**
+  - Comparación lado a lado: VAE vs GAN
+  - Métricas cuantitativas
+  - Visualizaciones de calidad
+  - Conclusiones y recomendaciones
+
+**Requisitos de Notebooks**:
+- Organización clara con secciones
+- Todas las salidas ejecutadas y visibles
+- Comentarios explicativos entre celdas
+- Gráficas bien etiquetadas con títulos y leyendas
+- Análisis crítico de resultados
+
+### 3. Reporte Técnico (15%)
+Documento PDF (4-6 páginas) que incluya:
+
+**a) Introducción (0.5 páginas)**
+- Contexto de modelos generativos
+- Objetivos del laboratorio
+- Metodología seguida
+
+**b) Desarrollo Teórico (1.5 páginas)**
+- Explicación de VAE: arquitectura, pérdida, ventajas/desventajas
+- Explicación de GAN: entrenamiento adversarial, desafíos
+- Comparación conceptual
+
+**c) Implementación (1.5 páginas)**
+- Arquitecturas implementadas (diagramas)
+- Decisiones de diseño (activaciones, optimizadores, etc.)
+- Hiperparámetros seleccionados y justificación
+- Desafíos de implementación encontrados
+
+**d) Resultados y Análisis (1.5 páginas)**
+- Visualizaciones de generaciones (VAE y GAN)
+- Métricas cuantitativas (pérdidas, calidad)
+- Comparación de modelos
+- Análisis crítico de limitaciones
+
+**e) Conclusiones y Reflexión (0.5 páginas)**
+- Conceptos clave aprendidos
+- Aplicaciones potenciales
+- Consideraciones éticas
+- Trabajo futuro
+
+**f) Referencias**
+- Papers citados
+- Recursos utilizados
+- Código de referencia consultado
+
+### Formato de Entrega
+
+```
+Lab09_NombreApellido/
+├── codigo/
+│   ├── vae.py
+│   ├── gan.py
+│   ├── autoencoder.py
+│   ├── utils.py
+│   ├── config.py
+│   └── tests/
+│       ├── test_vae.py
+│       └── test_gan.py
+├── notebooks/
+│   ├── 01_autoencoder_basico.ipynb
+│   ├── 02_vae_completo.ipynb
+│   ├── 03_gan_entrenamiento.ipynb
+│   └── 04_analisis_comparativo.ipynb
+├── resultados/
+│   ├── visualizaciones/
+│   │   ├── vae_reconstructions.png
+│   │   ├── vae_latent_space.png
+│   │   ├── vae_generations.png
+│   │   ├── gan_progress.png
+│   │   └── comparison.png
+│   ├── modelos/
+│   │   ├── vae_best.pth
+│   │   └── gan_best.pth
+│   └── metricas/
+│       └── training_logs.csv
+├── reporte/
+│   └── reporte_lab09.pdf
+└── README.md
+```
+
+**Archivo README.md debe incluir**:
+- Descripción del proyecto
+- Instrucciones de instalación
+- Cómo ejecutar el código
+- Estructura del repositorio
+- Resultados destacados
+- Autor y fecha
+
+---
+
+## 🎯 Criterios de Evaluación (CDIO)
+
+### Concebir (25%)
+**Comprensión conceptual de modelos generativos**
+
+- ✅ Entiende la diferencia entre modelos discriminativos y generativos
+- ✅ Comprende el papel del espacio latente en la generación
+- ✅ Identifica cuándo usar VAE vs GAN según el problema
+- ✅ Reconoce limitaciones y desafíos de cada arquitectura
+- ✅ Propone aplicaciones apropiadas y creativas
+
+**Evidencia**: Respuestas a preguntas de reflexión, justificación de decisiones en el reporte, diseño de experimentos
+
+**Preguntas Clave**:
+- ¿Por qué VAE necesita KL divergence en su pérdida?
+- ¿Qué causa el mode collapse en GANs y cómo prevenirlo?
+- ¿Cuándo elegirías VAE sobre GAN para un problema real?
+
+### Diseñar (25%)
+**Diseño de arquitecturas y experimentos generativos**
+
+- ✅ Diseña arquitecturas VAE apropiadas (encoder/decoder simétricos)
+- ✅ Construye generador y discriminador balanceados
+- ✅ Selecciona dimensión latente adecuada
+- ✅ Planifica experimentos significativos y controlados
+- ✅ Considera estrategias de estabilización (label smoothing, ruido, etc.)
+- ✅ Diseña métricas de evaluación apropiadas
+
+**Evidencia**: Arquitecturas en código, diagramas en reporte, notebooks de experimentos
+
+**Rúbrica de Diseño**:
+- Arquitectura coherente y justificada
+- Hiperparámetros seleccionados con criterio
+- Experimentos diseñados para responder preguntas específicas
+- Consideración de casos extremos y failure modes
+
+### Implementar (30%)
+**Implementación técnica correcta y eficiente**
+
+- ✅ Implementa VAE completo con reparameterization trick correcto
+- ✅ Construye GAN con entrenamiento alternado funcional
+- ✅ Calcula pérdidas correctamente (BCE, MSE, KL divergence)
+- ✅ Usa PyTorch/TensorFlow eficientemente (GPU, batching)
+- ✅ Código limpio, modular y documentado
+- ✅ Maneja errores y casos especiales apropiadamente
+- ✅ Implementa visualizaciones claras e informativas
+- ✅ Tests unitarios que verifican componentes clave
+
+**Evidencia**: Código fuente, tests pasados, notebooks ejecutables
+
+**Aspectos Críticos**:
+- Reparameterization trick implementado correctamente
+- Gradientes fluyen apropiadamente en ambos modelos
+- Pérdidas calculadas sin errores numéricos
+- Visualizaciones generadas correctamente
+
+### Operar (20%)
+**Experimentación, análisis y documentación**
+
+- ✅ Entrena modelos con monitoreo apropiado
+- ✅ Analiza resultados crítica y objetivamente
+- ✅ Detecta y diagnostica problemas (mode collapse, blur, etc.)
+- ✅ Documenta experimentos de forma reproducible
+- ✅ Compara modelos usando métricas apropiadas
+- ✅ Propone mejoras basadas en observaciones
+- ✅ Considera implicaciones éticas de IA generativa
+
+**Evidencia**: Reporte técnico, visualizaciones, logs de entrenamiento, análisis comparativo
+
+**Criterios de Análisis**:
+- Interpretación correcta de pérdidas
+- Identificación de problemas en generaciones
+- Comparación justa entre modelos
+- Reflexión sobre limitaciones
+
+### Rúbrica Detallada
+
+| Criterio | Excelente (100%) | Bueno (80%) | Aceptable (60%) | Insuficiente (<60%) |
+|----------|------------------|-------------|-----------------|---------------------|
+| **Implementación VAE** | VAE perfecto con todas componentes, genera bien, espacio latente estructurado | VAE funcional, genera aceptable, pequeños issues | VAE parcial, genera pero con problemas, conceptos incompletos | No funciona o falta componentes críticos |
+| **Implementación GAN** | GAN estable, generaciones de calidad, entrenamiento controlado | GAN funciona, genera ok, algunos problemas de estabilidad | GAN inestable, generaciones pobres, muchos problemas | No converge o mode collapse severo |
+| **Experimentación** | Experimentos completos, creativos, bien documentados, análisis profundo | Todos experimentos requeridos, análisis correcto | Algunos experimentos faltantes, análisis superficial | Mínima experimentación o resultados sin análisis |
+| **Visualizaciones** | Excelentes gráficas, claras, informativas, profesionales | Buenas visualizaciones, entendibles, correctas | Visualizaciones básicas, algunas confusas | Pobres, incorrectas o ausentes |
+| **Análisis Comparativo** | Comparación profunda VAE vs GAN, insightful, métricas cuantitativas | Comparación completa, correcta, algunas métricas | Comparación superficial, solo cualitativa | Ausente o incorrecta |
+| **Documentación** | Código y reporte excepcionales, claro, profesional, reproducible | Buena documentación, entendible, completo | Documentación básica, falta claridad | Pobre, incompleta o ausente |
+| **Conceptos Teóricos** | Dominio completo de teoría, explicaciones claras, conexiones profundas | Comprensión sólida, explicaciones correctas | Comprensión básica, algunas confusiones | Falta comprensión fundamental |
+| **Código Limpio** | Código excepcional: modular, eficiente, PEP8, tests completos | Código bueno: organizado, funciona bien, algunos tests | Código funcional pero desorganizado, sin tests | Código problemático, difícil de seguir |
+
+### Distribución de Puntos
+
+**Implementación (30 puntos)**:
+- VAE completo y funcional: 15 pts
+- GAN completo y funcional: 15 pts
+
+**Experimentación (25 puntos)**:
+- Notebook autoencoder básico: 5 pts
+- Notebook VAE completo: 8 pts
+- Notebook GAN: 8 pts
+- Notebook comparativo: 4 pts
+
+**Análisis y Reporte (20 puntos)**:
+- Reporte técnico completo: 12 pts
+- Visualizaciones de calidad: 8 pts
+
+**Conceptos y Teoría (15 puntos)**:
+- Comprensión demostrada en código: 8 pts
+- Respuestas a preguntas reflexivas: 7 pts
+
+**Calidad de Código (10 puntos)**:
+- Limpieza y organización: 5 pts
+- Documentación y tests: 5 pts
+
+**Total: 100 puntos**
+
+---
+
+## 📚 Referencias Adicionales
+
+### Papers Fundamentales
+
+**Variational Autoencoders**:
+1. **Kingma, D. P., & Welling, M.** (2013). "Auto-Encoding Variational Bayes"
+   - Paper original de VAE
+   - [https://arxiv.org/abs/1312.6114](https://arxiv.org/abs/1312.6114)
+   - Lectura esencial para entender fundamentos
+
+2. **Rezende, D. J., Mohamed, S., & Wierstra, D.** (2014). "Stochastic Backpropagation and Approximate Inference in Deep Generative Models"
+   - Perspectiva complementaria sobre VAE
+   - [https://arxiv.org/abs/1401.4082](https://arxiv.org/abs/1401.4082)
+
+3. **Higgins, I., et al.** (2017). "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework"
+   - VAE con mejor disentanglement
+   - [https://openreview.net/forum?id=Sy2fzU9gl](https://openreview.net/forum?id=Sy2fzU9gl)
+
+**Generative Adversarial Networks**:
+4. **Goodfellow, I., et al.** (2014). "Generative Adversarial Networks"
+   - Paper original de GAN - lectura obligatoria
+   - [https://arxiv.org/abs/1406.2661](https://arxiv.org/abs/1406.2661)
+
+5. **Radford, A., Metz, L., & Chintala, S.** (2015). "Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks (DCGAN)"
+   - GANs con convoluciones - arquitectura estable
+   - [https://arxiv.org/abs/1511.06434](https://arxiv.org/abs/1511.06434)
+
+6. **Arjovsky, M., Chintala, S., & Bottou, L.** (2017). "Wasserstein GAN"
+   - Mejora estabilidad con distancia Wasserstein
+   - [https://arxiv.org/abs/1701.07875](https://arxiv.org/abs/1701.07875)
+
+7. **Karras, T., et al.** (2019). "A Style-Based Generator Architecture for Generative Adversarial Networks (StyleGAN)"
+   - Estado del arte en generación de imágenes
+   - [https://arxiv.org/abs/1812.04948](https://arxiv.org/abs/1812.04948)
+
+**Diffusion Models** (Estado del Arte Actual):
+8. **Ho, J., Jain, A., & Abbeel, P.** (2020). "Denoising Diffusion Probabilistic Models"
+   - Fundamento de modelos de difusión modernos
+   - [https://arxiv.org/abs/2006.11239](https://arxiv.org/abs/2006.11239)
+
+9. **Rombach, R., et al.** (2022). "High-Resolution Image Synthesis with Latent Diffusion Models"
+   - Base de Stable Diffusion
+   - [https://arxiv.org/abs/2112.10752](https://arxiv.org/abs/2112.10752)
+
+### Libros
+
+1. **Goodfellow, I., Bengio, Y., & Courville, A.** (2016). "Deep Learning"
+   - Capítulo 20: Modelos Generativos Profundos
+   - Disponible gratis: [http://www.deeplearningbook.org](http://www.deeplearningbook.org)
+   - Referencia fundamental
+
+2. **Foster, D.** (2019). "Generative Deep Learning: Teaching Machines to Paint, Write, Compose, and Play"
+   - Enfoque práctico en VAE, GAN, y más
+   - Código en TensorFlow/Keras
+   - [O'Reilly Media]
+
+3. **Langr, J., & Bok, V.** (2019). "GANs in Action: Deep learning with Generative Adversarial Networks"
+   - Práctico, con muchos ejemplos de código
+   - [Manning Publications]
+
+### Tutoriales y Cursos Online
+
+**Tutoriales Oficiales**:
+1. **PyTorch VAE Tutorial**
+   - [https://github.com/pytorch/examples/tree/master/vae](https://github.com/pytorch/examples/tree/master/vae)
+   - Implementación de referencia oficial
+
+2. **TensorFlow GAN Guide**
+   - [https://www.tensorflow.org/tutorials/generative/dcgan](https://www.tensorflow.org/tutorials/generative/dcgan)
+   - Tutorial paso a paso de DCGAN
+
+3. **Hugging Face Diffusers**
+   - [https://huggingface.co/docs/diffusers/](https://huggingface.co/docs/diffusers/)
+   - Librería moderna para diffusion models
+
+**Cursos Completos**:
+4. **Stanford CS236: Deep Generative Models**
+   - [https://deepgenerativemodels.github.io/](https://deepgenerativemodels.github.io/)
+   - Curso completo con slides y videos
+   - Cubre VAE, GAN, flows, diffusion
+
+5. **Fast.ai: Practical Deep Learning for Coders**
+   - [https://course.fast.ai/](https://course.fast.ai/)
+   - Parte 2 incluye generative models
+   - Enfoque muy práctico
+
+6. **DeepLearning.AI: Generative Adversarial Networks (GANs) Specialization**
+   - [Coursera]
+   - 3 cursos sobre GANs
+   - Impartido por expertos de la industria
+
+### Recursos Interactivos y Visualizaciones
+
+1. **GAN Lab**
+   - [https://poloclub.github.io/ganlab/](https://poloclub.github.io/ganlab/)
+   - Visualización interactiva de entrenamiento GAN
+   - Experimenta en el navegador
+
+2. **TensorFlow Playground**
+   - [https://playground.tensorflow.org](https://playground.tensorflow.org)
+   - Para entender redes neuronales básicas
+
+3. **Distill.pub - Visualizaciones de ML**
+   - [https://distill.pub](https://distill.pub)
+   - Artículos con visualizaciones interactivas
+   - Alta calidad académica
+
+### Implementaciones de Referencia
+
+**Repositorios Oficiales**:
+1. **PyTorch Examples**
+   - VAE: [https://github.com/pytorch/examples/tree/master/vae](https://github.com/pytorch/examples/tree/master/vae)
+   - DCGAN: [https://github.com/pytorch/examples/tree/master/dcgan](https://github.com/pytorch/examples/tree/master/dcgan)
+
+2. **Stable Diffusion**
+   - [https://github.com/CompVis/stable-diffusion](https://github.com/CompVis/stable-diffusion)
+   - Estado del arte en generación texto→imagen
+
+3. **StyleGAN3 (NVIDIA)**
+   - [https://github.com/NVlabs/stylegan3](https://github.com/NVlabs/stylegan3)
+   - Última versión de StyleGAN
+
+4. **DALL-E Mini / Craiyon**
+   - [https://github.com/borisdayma/dalle-mini](https://github.com/borisdayma/dalle-mini)
+   - Versión open-source de generación texto→imagen
+
+**Colecciones de Modelos**:
+5. **Papers with Code - Generative Models**
+   - [https://paperswithcode.com/task/image-generation](https://paperswithcode.com/task/image-generation)
+   - Código de papers recientes
+   - Comparación de benchmarks
+
+6. **Hugging Face Models**
+   - [https://huggingface.co/models?pipeline_tag=image-generation](https://huggingface.co/models?pipeline_tag=image-generation)
+   - Modelos pre-entrenados descargables
+   - Fácil de usar con transformers library
+
+### Datasets para Experimentación
+
+1. **MNIST & Fashion-MNIST**
+   - Clásicos para empezar
+   - [http://yann.lecun.com/exdb/mnist/](http://yann.lecun.com/exdb/mnist/)
+   - Rápido de entrenar
+
+2. **CelebA (Celebrities Faces)**
+   - [http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)
+   - 200K imágenes de rostros
+   - Ideal para GANs
+
+3. **CIFAR-10/100**
+   - [https://www.cs.toronto.edu/~kriz/cifar.html](https://www.cs.toronto.edu/~kriz/cifar.html)
+   - Objetos de 32×32
+   - Más desafiante que MNIST
+
+4. **ImageNet**
+   - [https://www.image-net.org/](https://www.image-net.org/)
+   - Millones de imágenes
+   - Requiere recursos significativos
+
+### Herramientas y Plataformas
+
+**Desarrollo y Experimentación**:
+1. **Google Colab**
+   - [https://colab.research.google.com/](https://colab.research.google.com/)
+   - GPUs/TPUs gratuitas
+   - Ideal para aprender
+
+2. **Kaggle Kernels**
+   - [https://www.kaggle.com/code](https://www.kaggle.com/code)
+   - GPUs gratuitas, datasets integrados
+   - Comunidad activa
+
+3. **Weights & Biases**
+   - [https://wandb.ai/](https://wandb.ai/)
+   - Tracking de experimentos
+   - Visualización de entrenamientos
+   - Comparación de modelos
+
+4. **TensorBoard**
+   - [https://www.tensorflow.org/tensorboard](https://www.tensorflow.org/tensorboard)
+   - Visualización de entrenamientos
+   - Compatible con PyTorch
+
+**Demos y Aplicaciones**:
+5. **Gradio**
+   - [https://gradio.app/](https://gradio.app/)
+   - Crear interfaces web rápidamente
+   - Compartir demos de modelos
+
+6. **Streamlit**
+   - [https://streamlit.io/](https://streamlit.io/)
+   - Apps de ML con Python puro
+   - Despliegue fácil
+
+### Comunidades y Foros
+
+1. **r/MachineLearning (Reddit)**
+   - [https://www.reddit.com/r/MachineLearning/](https://www.reddit.com/r/MachineLearning/)
+   - Papers recientes, discusiones
+   - [RESEARCH] y [PROJECT] tags
+
+2. **r/MediaSynthesis**
+   - [https://www.reddit.com/r/MediaSynthesis/](https://www.reddit.com/r/MediaSynthesis/)
+   - Enfocado en generación de contenido
+   - GANs, Diffusion, etc.
+
+3. **Papers with Code Community**
+   - Discusiones sobre papers
+   - Comparaciones de implementaciones
+
+4. **Hugging Face Forums**
+   - [https://discuss.huggingface.co/](https://discuss.huggingface.co/)
+   - Ayuda con modelos y librerías
+   - Muy activo
+
+5. **Stack Overflow**
+   - Tags: [pytorch], [tensorflow], [gan], [vae]
+   - Para errores específicos de código
+
+### Blogs y Artículos Técnicos
+
+1. **Lilian Weng's Blog**
+   - [https://lilianweng.github.io/](https://lilianweng.github.io/)
+   - Excelentes explicaciones técnicas
+   - VAE, GAN, Diffusion posts
+
+2. **OpenAI Blog**
+   - [https://openai.com/blog/](https://openai.com/blog/)
+   - DALL-E, CLIP, y más
+   - Estado del arte
+
+3. **Google AI Blog**
+   - [https://ai.googleblog.com/](https://ai.googleblog.com/)
+   - Investigación de Google
+   - Imagen, Parti, etc.
+
+4. **Distill.pub**
+   - [https://distill.pub/](https://distill.pub/)
+   - Visualizaciones interactivas
+   - Explicaciones profundas
+
+### Ética y Responsabilidad
+
+1. **Partnership on AI**
+   - [https://www.partnershiponai.org/](https://www.partnershiponai.org/)
+   - Guías sobre IA responsable
+
+2. **Montreal Declaration for Responsible AI**
+   - [https://www.montrealdeclaration-responsibleai.com/](https://www.montrealdeclaration-responsibleai.com/)
+   - Principios éticos
+
+3. **Content Authenticity Initiative (Adobe)**
+   - [https://contentauthenticity.org/](https://contentauthenticity.org/)
+   - Verificación de contenido generado
+
+4. **AI Safety Resources**
+   - [https://www.aisafety.com/](https://www.aisafety.com/)
+   - Seguridad en IA generativa
+
+### Documentación Técnica
+
+1. **PyTorch Documentation**
+   - [https://pytorch.org/docs/](https://pytorch.org/docs/)
+   - Referencia completa
+   - Tutoriales integrados
+
+2. **TensorFlow/Keras Documentation**
+   - [https://www.tensorflow.org/api_docs](https://www.tensorflow.org/api_docs)
+   - API completa
+
+3. **NumPy Documentation**
+   - [https://numpy.org/doc/](https://numpy.org/doc/)
+   - Fundamental para operaciones
+
+4. **Matplotlib Gallery**
+   - [https://matplotlib.org/stable/gallery/](https://matplotlib.org/stable/gallery/)
+   - Ejemplos de visualizaciones
+
+---
+
+## 🎓 Notas Finales
+
+### Conceptos Clave para Recordar
+
+**1. Modelos Generativos vs Discriminativos**
+   - **Discriminativos**: P(y|x) - "¿A qué clase pertenece?"
+   - **Generativos**: P(x) o P(x|y) - "¿Qué nuevos ejemplos puedo crear?"
+   - Generativos modelan la distribución completa de los datos
+
+**2. El Espacio Latente es el Núcleo**
+   - Representación comprimida de alta dimensión → baja dimensión
+   - Captura features esenciales, descarta ruido
+   - Permite operaciones: interpolación, aritmética, sampling
+   - Calidad del espacio latente = calidad del modelo
+
+**3. VAE: Probabilístico y Estructurado**
+   - Encoder → distribución (μ, σ), no punto fijo
+   - Reparameterization trick: z = μ + σ⊙ε donde ε ~ N(0,1)
+   - Pérdida = Reconstrucción (fidelidad) + KL (regularización)
+   - Ventaja: espacio latente continuo y significativo
+   - Limitación: reconstrucciones pueden ser borrosas
+
+**4. GAN: Adversarial y Realista**
+   - Juego minimax: G intenta engañar, D intenta detectar
+   - No necesita pérdida de reconstrucción explícita
+   - Ventaja: generaciones muy realistas
+   - Limitación: entrenamiento inestable, mode collapse
+   - Clave: balancear poderes de G y D
+
+**5. Diffusion Models: El Nuevo Estado del Arte**
+   - Añadir ruido gradualmente → aprender a quitarlo
+   - Más estable que GANs, mejor calidad que VAE
+   - Base de DALL-E 2, Stable Diffusion, Midjourney
+   - Futuro de la generación de imágenes
+
+**6. Métricas de Evaluación**
+   - **Cualitativas**: Inspección visual, realismo percibido
+   - **Cuantitativas**: 
+     - FID (Fréchet Inception Distance) - calidad y diversidad
+     - IS (Inception Score) - calidad y variedad
+     - Precision & Recall - fidelidad vs diversidad
+   - No hay métrica perfecta - combinación es mejor
+
+**7. Consideraciones Éticas son Esenciales**
+   - ⚠️ Deepfakes y desinformación
+   - ⚠️ Sesgos en datos → sesgos en generaciones
+   - ⚠️ Privacidad: modelos pueden memorizar datos de entrenamiento
+   - ✅ Usar responsablemente, etiquetar contenido generado
+   - ✅ Considerar impacto social antes de deployment
+
+### Preparación para el Siguiente Lab
+
+**Lab 10: Redes Neuronales Convolucionales (CNN)**
+
+En el próximo laboratorio, aprenderás:
+- Capas convolucionales y pooling
+- Arquitecturas CNN clásicas (LeNet, AlexNet, VGG, ResNet)
+- Aplicaciones en visión computacional
+- Transfer learning con modelos pre-entrenados
+- Visualización de features aprendidos
+
+**Conexión con IA Generativa**:
+- GANs modernos usan arquitecturas convolucionales (DCGAN, StyleGAN)
+- Discriminadores son esencialmente CNNs clasificadoras
+- Entender convoluciones es crucial para GANs de imágenes
+
+**Para prepararte**:
+1. Repasa operaciones convolucionales básicas
+2. Entiende cómo las convoluciones capturan features espaciales
+3. Investiga arquitecturas como ResNet (usadas en StyleGAN)
+4. Piensa en cómo generador "deconvoluciona" de pequeño a grande
+
+### Consejos de Estudio
+
+**1. Implementa desde Cero Primero**
+   - No uses librerías de alto nivel inmediatamente
+   - Entiende cada componente internamente
+   - Luego sí, usa frameworks para eficiencia
+
+**2. Visualiza Todo Constantemente**
+   - Espacio latente en 2D/3D (t-SNE, UMAP)
+   - Reconstrucciones vs originales
+   - Generaciones a lo largo del entrenamiento
+   - Pérdidas de G y D (para GANs)
+
+**3. Experimenta Sistemáticamente**
+   - Cambia un hiperparámetro a la vez
+   - Documenta todos los experimentos
+   - Usa Weights & Biases o TensorBoard
+   - Compara resultados objetivamente
+
+**4. Lee el Paper Original**
+   - Goodfellow (2014) para GAN
+   - Kingma & Welling (2013) para VAE
+   - Entender fundamentos matemáticos
+   - Luego leer tutoriales/blogs para intuición
+
+**5. Participa en la Comunidad**
+   - Comparte tus generaciones en r/MediaSynthesis
+   - Pregunta dudas en Hugging Face forums
+   - Contribuye a proyectos open-source
+   - Aprende de implementaciones de otros
+
+**6. Mantén Perspectiva Ética**
+   - Reflexiona sobre implicaciones de lo que construyes
+   - No generes contenido dañino o engañoso
+   - Marca contenido generado como tal
+   - Considera sesgos en tus datos
+
+### Solución de Problemas Comunes
+
+**Problema: VAE genera imágenes borrosas**
+- **Causa**: KL divergence domina la pérdida, reconstrucción se sacrifica
+- **Solución**: 
+  - Reducir peso de KL (β-VAE con β < 1)
+  - Usar pérdida perceptual en lugar de MSE
+  - Aumentar capacidad del decoder
+
+**Problema: GAN sufre mode collapse**
+- **Causa**: Generador encuentra un "truco" para engañar a D
+- **Síntomas**: Todas las generaciones lucen similares
+- **Solución**:
+  - Usar minibatch discrimination
+  - Añadir ruido a inputs de D
+  - Probar Wasserstein GAN (WGAN)
+  - Entrenar D más que G (ej: 5:1)
+
+**Problema: Entrenamiento GAN inestable**
+- **Causa**: Desequilibrio entre G y D, gradientes explosivos
+- **Solución**:
+  - Label smoothing (usar 0.9 en lugar de 1.0)
+  - Gradient penalty (WGAN-GP)
+  - Usar arquitecturas probadas (DCGAN)
+  - Reducir learning rate
+  - Spectral normalization
+
+**Problema: Generaciones de baja calidad**
+- **Causa**: Arquitectura insuficiente, datos limitados
+- **Solución**:
+  - Aumentar capacidad del modelo (más capas/filtros)
+  - Más datos de entrenamiento
+  - Data augmentation agresivo
+  - Pre-entrenar en dataset más grande
+
+**Problema: Mode collapse parcial**
+- **Síntomas**: Genera bien algunos dígitos, ignora otros
+- **Solución**:
+  - Usar conditional GAN para forzar diversidad
+  - Unrolled GAN
+  - Verificar balance de clases en datos
+
+**Problema: Espacio latente de VAE no es interpretable**
+- **Causa**: Falta de presión para disentanglement
+- **Solución**:
+  - Usar β-VAE con β > 1
+  - Aumentar dimensión latente
+  - Visualizar con t-SNE/UMAP
+  - Añadir pérdidas auxiliares
+
+**Problema: Out of memory (OOM) en GPU**
+- **Solución**:
+  - Reducir batch size
+  - Usar mixed precision training (fp16)
+  - Gradient checkpointing
+  - Entrenar en resolución menor primero
+
+**Problema: Entrenamiento muy lento**
+- **Solución**:
+  - Usar GPU en lugar de CPU
+  - Aumentar batch size (si cabe en memoria)
+  - DataLoader con múltiples workers
+  - Mixed precision training
+  - Profiling para encontrar bottlenecks
+
+### Proyectos y Aplicaciones Futuras
+
+**Proyectos para Profundizar**:
+
+1. **Generador de Arte Personalizado**
+   - Entrenar StyleGAN en tu propio dataset
+   - Crear interfaz web con Gradio
+   - Permitir control fino de atributos
+
+2. **Super-Resolución de Imágenes**
+   - GAN para aumentar resolución (ESRGAN)
+   - Comparar con métodos tradicionales
+   - Aplicar a casos reales
+
+3. **Transferencia de Estilo Neural**
+   - Combinar contenido de una imagen + estilo de otra
+   - Usar VAE o GAN
+   - Implementar en tiempo real
+
+4. **Generación Condicional Avanzada**
+   - Texto → Imagen (mini DALL-E)
+   - Sketch → Imagen fotorrealista
+   - Imagen parcial → Imagen completa (inpainting)
+
+5. **Detección de Deepfakes**
+   - Entrenar clasificador para detectar imágenes generadas
+   - Analizar artifacts específicos de GANs
+   - Contribuir a la seguridad digital
+
+**Aplicaciones en la Industria**:
+
+- 🎮 **Gaming**: Generación procedural de mundos, texturas
+- 🎬 **Cine**: Efectos especiales, de-aging, dubbing
+- 🛍️ **E-commerce**: Generación de fotos de productos
+- 🏥 **Medicina**: Síntesis de imágenes médicas para privacidad
+- 🏗️ **Arquitectura**: Generación de diseños, visualizaciones
+- 🎨 **Arte**: Herramientas creativas para artistas
+- 🔬 **Ciencia**: Diseño de moléculas, materiales
+
+### Recursos de Actualización Continua
+
+**Para mantenerte actualizado**:
+
+1. **ArXiv Sanity Preserver**
+   - [http://www.arxiv-sanity.com/](http://www.arxiv-sanity.com/)
+   - Papers de ML organizados y recomendados
+
+2. **Papers with Code Newsletter**
+   - Resumen semanal de papers importantes
+   - Con código incluido
+
+3. **Two Minute Papers (YouTube)**
+   - [https://www.youtube.com/c/K%C3%A1rolyZsolnai](https://www.youtube.com/c/K%C3%A1rolyZsolnai)
+   - Resúmenes visuales de papers recientes
+   - Muy entretenido
+
+4. **Conferences**
+   - NeurIPS, ICML, ICLR (ML top-tier)
+   - CVPR, ICCV, ECCV (Computer Vision)
+   - Workshops sobre Generative Models
+
+### Certificación de Completitud
+
+Has completado exitosamente el Lab 09 cuando puedes:
+
+**Conceptual**:
+- [ ] Explicar diferencia entre modelos discriminativos y generativos
+- [ ] Describir arquitectura y entrenamiento de VAE
+- [ ] Explicar entrenamiento adversarial de GAN
+- [ ] Comparar VAE vs GAN (ventajas/desventajas)
+- [ ] Entender reparameterization trick y por qué es necesario
+- [ ] Identificar y explicar mode collapse y otros problemas
+
+**Práctico**:
+- [ ] Implementar autoencoder básico desde cero
+- [ ] Construir VAE completo con todas componentes
+- [ ] Implementar GAN con generador y discriminador
+- [ ] Entrenar ambos modelos en MNIST o dataset similar
+- [ ] Generar nuevas muestras realistas
+- [ ] Interpolar suavemente en espacio latente
+- [ ] Visualizar y analizar resultados
+
+**Analítico**:
+- [ ] Evaluar calidad de generaciones (visual y métricas)
+- [ ] Diagnosticar problemas de entrenamiento
+- [ ] Comparar resultados VAE vs GAN objetivamente
+- [ ] Proponer mejoras basadas en observaciones
+- [ ] Documentar experimentos de forma reproducible
+
+**Ético**:
+- [ ] Reconocer implicaciones éticas de IA generativa
+- [ ] Entender riesgos de deepfakes y desinformación
+- [ ] Comprometerse a uso responsable
+- [ ] Etiquetar contenido generado apropiadamente
+
+---
+
+**¡Felicitaciones por completar el Lab 09! Has entrado al fascinante mundo de la IA Generativa. 🎉**
+
+Has aprendido a crear modelos que no solo entienden datos, sino que **generan nuevos datos** indistinguibles de los reales. Esta es una de las áreas más emocionantes y de más rápido crecimiento en Deep Learning.
+
+**Recuerda**:
+- 🧠 La creatividad no es solo humana - las máquinas pueden ser creativas
+- 🎨 Usa estos poderes responsablemente
+- 🔬 Experimenta, falla, aprende, repite
+- 🌟 El límite es tu imaginación (y tu GPU 😄)
+
+**Siguiente parada**: Lab 10 - Redes Neuronales Convolucionales 🚀
+
+Aprenderás las arquitecturas que hacen posibles los GANs modernos y la visión computacional avanzada.
+
+---
+
+*Última actualización: 2024*  
+*Versión: 1.0*  
+*Licencia: MIT - Uso educativo*
+
+---
+
 ## 🎓 Conclusiones y Reflexión Final
 
 ### Resumen de Conceptos Aprendidos
