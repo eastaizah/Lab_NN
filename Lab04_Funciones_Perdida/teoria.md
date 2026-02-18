@@ -355,6 +355,7 @@ Loss_total = Loss_original + λ * Σ|w|
 - Genera sparsity (algunos pesos = 0)
 
 **Dropout**:
+
 El dropout es una técnica de regularización en redes neuronales que desactiva aleatoriamente un porcentaje de neuronas durante el entrenamiento (típicamente entre 20% y 50%). Esto evita que la red dependa excesivamente de neuronas específicas, reduciendo el sobreajuste (overfitting) y forzando al modelo a aprender patrones más generales y robustos.
 
 ¿Cómo funciona?
