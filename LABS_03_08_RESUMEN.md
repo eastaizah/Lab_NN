@@ -1,4 +1,4 @@
-# Resumen de Laboratorios 03-08: Redes Neuronales desde Cero
+# Resumen de Laboratorios 03-09: Redes Neuronales desde Cero
 
 ## 📚 Contenido Creado
 
@@ -148,7 +148,44 @@ Lab06_Entrenamiento/
 
 ---
 
-## Lab 07: Frameworks de Deep Learning
+## Lab 07: Métricas de Evaluación y Matriz de Confusión
+
+### Contenido
+- **teoria.md**: Matriz de confusión, métricas de clasificación, validación
+- **codigo/metricas.py**: Implementación completa de métricas desde cero
+- **practica.ipynb**: Experimentos con evaluación de modelos
+- **README.md**: Guía completa del laboratorio
+
+### Conceptos Clave
+- Matriz de confusión (TP, FP, FN, TN)
+- Accuracy, Precision, Recall, F1-Score
+- Specificity, MCC
+- Validación cruzada (K-Fold)
+- Datasets balanceados vs desbalanceados
+- Optimización de umbrales de clasificación
+- Métricas macro, micro y weighted
+
+### Ejercicios Incluidos
+1. Calcular métricas manualmente
+2. Implementar matriz de confusión
+3. Evaluar modelos en datasets desbalanceados
+4. Implementar K-Fold cross-validation
+5. Optimizar umbrales para diferentes objetivos
+6. Comparar modelos usando métricas apropiadas
+
+### Archivos
+```
+Lab07_Metricas_Evaluacion/
+├── README.md (5.1 KB)
+├── teoria.md (14.7 KB)
+├── practica.ipynb (interactivo)
+└── codigo/
+    └── metricas.py (16.3 KB)
+```
+
+---
+
+## Lab 08: Frameworks de Deep Learning
 
 ### Contenido
 - **teoria.md**: PyTorch vs TensorFlow, ventajas, comparaciones
@@ -175,7 +212,7 @@ Lab06_Entrenamiento/
 
 ### Archivos
 ```
-Lab07_Frameworks_DeepLearning/
+Lab08_Frameworks_DeepLearning/
 ├── README.md (2.3 KB)
 ├── teoria.md (10.0 KB)
 ├── practica.ipynb (comparativo)
@@ -186,7 +223,7 @@ Lab07_Frameworks_DeepLearning/
 
 ---
 
-## Lab 08: IA Generativa
+## Lab 09: IA Generativa
 
 ### Contenido
 - **teoria.md**: VAE, GAN, Diffusion Models, aplicaciones
@@ -213,7 +250,7 @@ Lab07_Frameworks_DeepLearning/
 
 ### Archivos
 ```
-Lab08_IA_Generativa/
+Lab09_IA_Generativa/
 ├── README.md (3.5 KB)
 ├── teoria.md (9.7 KB)
 ├── practica.ipynb (generación)
@@ -226,12 +263,12 @@ Lab08_IA_Generativa/
 ## 📊 Estadísticas Totales
 
 ### Archivos Creados
-- **6 Laboratorios** (Lab 03-08)
-- **6 archivos teoria.md** (~53 KB total)
-- **6 archivos README.md** (~23 KB total)
-- **8 archivos .py** (~46 KB total)
-- **6 archivos .ipynb** (notebooks interactivos)
-- **Total: 26 archivos**
+- **7 Laboratorios** (Lab 03-09)
+- **7 archivos teoria.md** (~68 KB total)
+- **7 archivos README.md** (~28 KB total)
+- **9 archivos .py** (~62 KB total)
+- **7 archivos .ipynb** (notebooks interactivos)
+- **Total: 30 archivos**
 
 ### Líneas de Código
 - **Teoría**: ~1,500 líneas de teoría
@@ -244,8 +281,9 @@ Lab08_IA_Generativa/
 3. ✅ Optimización (Gradient Descent, learning rate)
 4. ✅ Backpropagation (algoritmo completo)
 5. ✅ Entrenamiento (loop completo, validación)
-6. ✅ Frameworks (PyTorch, TensorFlow)
-7. ✅ IA Generativa (VAE, GAN)
+6. ✅ Evaluación y Métricas (Matriz de Confusión, Precision, Recall, F1)
+7. ✅ Frameworks (PyTorch, TensorFlow)
+8. ✅ IA Generativa (VAE, GAN)
 
 ---
 
@@ -276,12 +314,18 @@ Lab08_IA_Generativa/
 - ✅ Monitorear métricas
 
 ### Lab 07
+- ✅ Comprender matriz de confusión
+- ✅ Calcular métricas de clasificación
+- ✅ Elegir métricas apropiadas según el problema
+- ✅ Implementar validación cruzada
+
+### Lab 08
 - ✅ Comprender ventajas de frameworks
 - ✅ Usar PyTorch y TensorFlow
 - ✅ Aprovechar diferenciación automática
 - ✅ Acelerar con GPU
 
-### Lab 08
+### Lab 09
 - ✅ Entender modelos generativos
 - ✅ Conocer arquitecturas VAE y GAN
 - ✅ Explorar espacio latente
@@ -293,7 +337,7 @@ Lab08_IA_Generativa/
 
 ### Para Estudiantes
 
-1. **Orden Recomendado**: Seguir Labs 03 → 08 secuencialmente
+1. **Orden Recomendado**: Seguir Labs 03 → 09 secuencialmente
 
 2. **Por cada Lab**:
    ```bash

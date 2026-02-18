@@ -135,9 +135,30 @@ Al completar este curso, serás capaz de:
 
 ---
 
-### Módulo 4: Frameworks y Herramientas (Lab 07)
+### Módulo 4: Evaluación y Métricas (Lab 07)
 
-#### [Lab 07: Frameworks de Deep Learning](Lab07_Frameworks_DeepLearning/)
+#### [Lab 07: Métricas de Evaluación y Matriz de Confusión](Lab07_Metricas_Evaluacion/)
+**Duración estimada**: 3-4 horas
+
+**Aprenderás**:
+- Matriz de confusión y sus componentes
+- Métricas: Accuracy, Precision, Recall, F1-Score
+- Validación cruzada (K-Fold)
+- Evaluación en datasets balanceados y desbalanceados
+- Optimización de umbrales de clasificación
+
+**Archivos**:
+- `teoria.md`: Fundamentos de evaluación de modelos
+- `practica.ipynb`: Ejercicios con datasets reales
+- `codigo/metricas.py`: Implementación de métricas desde cero
+
+**Conceptos clave**: Matriz de confusión, TP/FP/FN/TN, Precision, Recall, F1-Score, Cross-Validation
+
+---
+
+### Módulo 5: Frameworks y Herramientas (Lab 08)
+
+#### [Lab 08: Frameworks de Deep Learning](Lab08_Frameworks_DeepLearning/)
 **Duración estimada**: 3-4 horas
 
 **Aprenderás**:
@@ -156,9 +177,9 @@ Al completar este curso, serás capaz de:
 
 ---
 
-### Módulo 5: Arquitecturas Especializadas (Labs 09-11)
+### Módulo 6: Arquitecturas Especializadas (Labs 10-12)
 
-#### [Lab 09: Redes Neuronales Convolucionales (CNN)](Lab09_Redes_Neuronales_Convolucionales/)
+#### [Lab 10: Redes Neuronales Convolucionales (CNN)](Lab10_Redes_Neuronales_Convolucionales/)
 **Duración estimada**: 4-5 horas
 
 **Aprenderás**:
@@ -179,7 +200,7 @@ Al completar este curso, serás capaz de:
 
 ---
 
-#### [Lab 10: Redes Neuronales Recurrentes y LSTM](Lab10_Redes_Neuronales_Recurrentes_LSTM/)
+#### [Lab 11: Redes Neuronales Recurrentes y LSTM](Lab11_Redes_Neuronales_Recurrentes_LSTM/)
 **Duración estimada**: 5-6 horas
 
 **Aprenderás**:
@@ -202,7 +223,7 @@ Al completar este curso, serás capaz de:
 
 ---
 
-#### [Lab 11: Transformers y Mecanismos de Atención](Lab11_Transformers/)
+#### [Lab 12: Transformers y Mecanismos de Atención](Lab12_Transformers/)
 **Duración estimada**: 6-7 horas
 
 **Aprenderás**:
@@ -226,9 +247,9 @@ Al completar este curso, serás capaz de:
 
 ---
 
-### Módulo 6: IA Generativa (Lab 08)
+### Módulo 7: IA Generativa (Lab 09)
 
-#### [Lab 08: Inteligencia Artificial Generativa](Lab08_IA_Generativa/)
+#### [Lab 09: Inteligencia Artificial Generativa](Lab09_IA_Generativa/)
 **Duración estimada**: 4-5 horas
 
 **Aprenderás**:
@@ -351,27 +372,27 @@ python Lab02_Primera_Red_Neuronal/codigo/red_neuronal.py
 - **Día 3-4**: Lab 04 - Funciones de Pérdida
 - **Día 5**: Proyecto integrador 1
 
-### Semana 3: Entrenamiento
+### Semana 3: Entrenamiento y Evaluación
 - **Día 1-3**: Lab 05 - Backpropagation
 - **Día 4-5**: Lab 06 - Entrenamiento
 
-### Semana 4: Frameworks
-- **Día 1-3**: Lab 07 - PyTorch/TensorFlow
-- **Día 4-5**: Integración y práctica con frameworks
+### Semana 4: Métricas y Frameworks
+- **Día 1-2**: Lab 07 - Métricas y Evaluación
+- **Día 3-5**: Lab 08 - PyTorch/TensorFlow
 
 ### Semana 5: Visión por Computadora
-- **Día 1-3**: Lab 09 - CNNs
+- **Día 1-3**: Lab 10 - CNNs
 - **Día 4-5**: Proyectos con imágenes
 
 ### Semana 6: Procesamiento Secuencial
-- **Día 1-4**: Lab 10 - RNNs y LSTMs
+- **Día 1-4**: Lab 11 - RNNs y LSTMs
 - **Día 5**: Proyectos con series temporales/texto
 
 ### Semana 7: Arquitecturas Modernas
-- **Día 1-5**: Lab 11 - Transformers y Atención
+- **Día 1-5**: Lab 12 - Transformers y Atención
 
 ### Semana 8: IA Generativa y Proyecto Final
-- **Día 1-3**: Lab 08 - IA Generativa
+- **Día 1-3**: Lab 09 - IA Generativa
 - **Día 4-5**: Proyecto final integrador
 
 ## 🛤️ Camino de Aprendizaje
@@ -390,22 +411,22 @@ Neurona individual → Capas de neuronas → Redes neuronales densas
 Funciones de activación → Funciones de pérdida → Optimización básica
 ```
 
-**Fase 3: Mecanismos de Aprendizaje (Labs 05-06)**
+**Fase 3: Mecanismos de Aprendizaje (Labs 05-07)**
 ```
-Backpropagation → Entrenamiento completo → Validación y ajuste
+Backpropagation → Entrenamiento completo → Evaluación y métricas
 ```
 
-**Fase 4: Herramientas Profesionales (Lab 07)**
+**Fase 4: Herramientas Profesionales (Lab 08)**
 ```
 Código manual → PyTorch/TensorFlow → Desarrollo profesional
 ```
 
-**Fase 5: Arquitecturas Especializadas (Labs 09-11)**
+**Fase 5: Arquitecturas Especializadas (Labs 10-12)**
 ```
 Visión (CNNs) → Secuencias (RNNs/LSTMs) → Atención (Transformers)
 ```
 
-**Fase 6: Generación (Lab 08)**
+**Fase 6: Generación (Lab 09)**
 ```
 Modelos discriminativos → Modelos generativos → VAE y GAN
 ```
@@ -413,11 +434,12 @@ Modelos discriminativos → Modelos generativos → VAE y GAN
 ### ¿Por qué este orden?
 
 1. **Labs 01-06**: Base sólida antes de especializaciones
-2. **Lab 07**: Frameworks antes de arquitecturas complejas
-3. **Lab 09 (CNNs)**: Más intuitivo, introduce convolución
-4. **Lab 10 (RNNs/LSTMs)**: Secuencias y memoria
-5. **Lab 11 (Transformers)**: Combina conceptos de CNNs y RNNs
-6. **Lab 08 (IA Generativa)**: Culminación, usa todas las técnicas anteriores
+2. **Lab 07**: Evaluación y métricas - esencial antes de frameworks
+3. **Lab 08**: Frameworks antes de arquitecturas complejas
+4. **Lab 10 (CNNs)**: Más intuitivo, introduce convolución
+5. **Lab 11 (RNNs/LSTMs)**: Secuencias y memoria
+6. **Lab 12 (Transformers)**: Combina conceptos de CNNs y RNNs
+7. **Lab 09 (IA Generativa)**: Culminación, usa todas las técnicas anteriores
 
 ## 🎓 Evaluación y Proyectos
 
