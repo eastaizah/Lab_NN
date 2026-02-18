@@ -317,7 +317,7 @@ Por ejemplo:
 ∂Loss/∂z = ŷ - y  # ¡También muy simple!
 ```
 
-## Overfitting y Regularización
+## Overfitting (Problema) y Regularización (Solución)
 
 ### Overfitting (Sobreajuste)
 
