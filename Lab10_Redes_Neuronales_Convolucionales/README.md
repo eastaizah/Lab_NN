@@ -1,4 +1,4 @@
-# Lab 09: Redes Neuronales Convolucionales (CNN)
+# Lab 10: Redes Neuronales Convolucionales (CNN)
 
 ## Descripción
 
@@ -169,7 +169,7 @@ Params = (Kernel_height * Kernel_width * Input_channels + 1) * Num_filters
 
 Una vez completes este laboratorio, continúa con:
 
-👉 **[Lab 10: Redes Neuronales Recurrentes y LSTM](../Lab10_Redes_Neuronales_Recurrentes_LSTM/)**
+👉 **[Lab 11: Redes Neuronales Recurrentes y LSTM](../Lab11_Redes_Neuronales_Recurrentes_LSTM/)**
 
 Exploraremos arquitecturas especializadas para datos secuenciales como texto y series de tiempo.
 

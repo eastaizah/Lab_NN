@@ -119,7 +119,7 @@ pip install tensorflow
 - [ ] Entiendo autograd
 
 ## Próximo Lab
-**Lab 08**: IA Generativa (VAEs, GANs)
+**Lab 09**: IA Generativa (VAEs, GANs)
 
 ---
 **¡Los frameworks hacen el deep learning accesible! 🚀**
