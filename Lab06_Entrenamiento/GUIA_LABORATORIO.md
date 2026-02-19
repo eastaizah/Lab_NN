@@ -181,7 +181,9 @@ Empecemos con la estructura más simple:
 
 #### Fundamento Teórico: División de Datos y Normalización
 
-Antes de ejecutar cualquier entrenamiento, es imprescindible preparar los datos correctamente. La **división en conjuntos train/validación/test** obedece a un principio estadístico fundamental: medir la capacidad de generalización del modelo en datos que nunca ha visto. El conjunto de entrenamiento ajusta los parámetros internos (pesos y sesgos); el conjunto de validación nos guía para tomar decisiones de diseño (hiperparámetros, arquitectura, cuándo parar) sin contaminar la estimación final; y el conjunto de test proporciona una medida honesta e imparcial del rendimiento real del modelo sobre datos del mundo real. Usar datos de test durante el desarrollo equivale a "hacer trampa en el examen" y produce estimaciones de rendimiento optimistas que no se sostienen en producción.
+Antes de ejecutar cualquier entrenamiento, es imprescindible preparar los datos correctamente. La **división en conjuntos train/validación/test** obedece a un principio estadístico fundamental: medir la capacidad de generalización del modelo en datos que nunca ha visto. Cada subconjunto cumple un rol específico: el conjunto de entrenamiento ajusta los parámetros internos (pesos y sesgos); el conjunto de validación nos guía para tomar decisiones de diseño (hiperparámetros, arquitectura, cuándo detener) sin contaminar la estimación final; y el conjunto de test proporciona una medida honesta del rendimiento real del modelo.
+
+La razón por la que estos conjuntos deben ser **completamente independientes** es el principio de honestidad estadística: usar datos de test durante el desarrollo equivale a "hacer trampa en el examen" y produce estimaciones de rendimiento optimistas que no se sostienen en producción. Una vez que el modelo ha "visto" ciertos datos, su estimación de error en esos mismos datos ya no es representativa del error esperado en datos nuevos.
 
 La distribución estándar **70% train / 15% val / 15% test** es un buen punto de partida para datasets de tamaño medio (miles de muestras). Para datasets muy grandes (millones de ejemplos) puede usarse una partición 98/1/1 porque incluso el 1% de test representa decenas de miles de muestras suficientes para estimaciones estadísticamente robustas. En datasets muy pequeños (cientos de muestras), se recomienda la **validación cruzada K-fold** en lugar de una sola división, porque maximiza el uso de los datos disponibles para entrenamiento y proporciona estimaciones más confiables del rendimiento.
 
@@ -844,7 +846,7 @@ La **regularización L1** (*Lasso*) usa `Ω(W) = Σ|Wᵢ|`. Su gradiente es `λ�
 
 | Propiedad | L1 (Lasso) | L2 (Ridge / Weight Decay) |
 |-----------|-----------|--------------------------|
-| Fórmula | λ·Σ&#124;W&#124; | λ/2·Σ(W²) |
+| Fórmula | `λ·Σ\|W\|` | `λ/2·Σ(W²)` |
 | Tipo de solución | Dispersa (muchos ceros) | Densa (pesos pequeños) |
 | Selección de features | **Sí** (implícita) | No |
 | Diferenciable en W=0 | No (problema numérico) | Sí |
@@ -1160,7 +1162,14 @@ def plot_lr_schedule(history):
 
 **Actividad 3.1:** Compara los tres tipos de scheduling. ¿Cuál converge más rápido?
 
-> **¿Qué debes observar y documentar?** Ejecuta el mismo modelo con los tres tipos de scheduling (step, exponential, plateau) usando el mismo learning rate inicial y el mismo número máximo de épocas. Grafica la evolución del LR junto a las curvas de pérdida para visualizar la correlación entre los cambios de LR y las mejoras en la pérdida. Analiza: ¿qué estrategia alcanza la pérdida mínima primero? ¿Cuál produce la menor pérdida de validación final? ¿Cuál es más robusta a la elección inicial del LR? Documenta tus conclusiones con evidencia cuantitativa de los experimentos.
+> **¿Qué debes observar y documentar?** Ejecuta el mismo modelo con los tres tipos de scheduling:
+> - **Step decay:** ¿En qué épocas se reducen los escalones y cómo afectan a la curva de pérdida?
+> - **Exponential decay:** ¿Es la reducción demasiado agresiva o gradual?
+> - **Reduce on plateau:** ¿Cuántas veces se activa la reducción? ¿Coincide con épocas de estancamiento visible?
+> - **Comparación:** ¿Qué estrategia alcanza la pérdida mínima primero? ¿Cuál produce la menor pérdida de validación final?
+> - **Robustez:** ¿Cuál es más insensible a la elección inicial del learning rate?
+> 
+> Documenta con evidencia cuantitativa (tablas o gráficas) y argumenta tu conclusión.
 
 ## 🔬 Parte 4: Monitoreo y Debugging (35 min)
 
