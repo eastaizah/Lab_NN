@@ -161,6 +161,22 @@ Antes de comenzar, reflexiona sobre estas preguntas:
 
 ### 1.1 Repaso de la Regla de la Cadena
 
+**¿Qué hacemos?** Revisamos la regla de la cadena del cálculo diferencial y la aplicamos a funciones compuestas como las que aparecen en redes neuronales.
+
+**¿Por qué lo hacemos?** Una red neuronal es esencialmente una función compuesta de muchas capas: `L = f_n(f_{n-1}(... f_1(x)))`. Para ajustar cualquier parámetro, necesitamos calcular `∂L/∂w`. La regla de la cadena nos permite **descomponer** esa derivada compleja en una cadena de derivadas locales simples:
+
+$$\frac{\partial L}{\partial w} = \frac{\partial L}{\partial a_n} \cdot \frac{\partial a_n}{\partial a_{n-1}} \cdots \frac{\partial a_2}{\partial a_1} \cdot \frac{\partial a_1}{\partial w}$$
+
+Sin la regla de la cadena, calcular gradientes en una red de 100 capas sería matemáticamente intratable. Con ella, basta con que cada capa conozca su **gradiente local** y sepa multiplicarlo por el gradiente que llega desde las capas superiores.
+
+**¿Cómo lo hacemos?** Introducimos la notación de variable intermedia `u`:
+
+$$\frac{\partial y}{\partial x} = \frac{\partial y}{\partial u} \cdot \frac{\partial u}{\partial x}$$
+
+**Analogía del termostato:** Imagina que el consumo eléctrico `E` depende de la temperatura de la habitación `T`, y `T` depende de la posición del termostato `p`. Para saber cuánto afecta el termostato al consumo —es decir, `∂E/∂p`— multiplicamos "cuánto cambia el consumo por grado" (`∂E/∂T`) por "cuánto cambia la temperatura por posición" (`∂T/∂p`). Eso es exactamente la regla de la cadena aplicada a una neurona.
+
+**¿Qué resultados esperar?** Gradientes que coincidan exactamente con los calculados por diferenciación analítica directa. La regla de la cadena no es una aproximación: es matemáticamente exacta.
+
 Comencemos con ejemplos matemáticos simples antes de aplicarlo a redes neuronales.
 
 **Ejemplo 1: Función compuesta simple**
@@ -235,6 +251,24 @@ print(f"∂z/∂y = {dz_dy}")
 
 ### 1.2 Grafos Computacionales
 
+**¿Qué hacemos?** Representamos cálculos matemáticos como un grafo dirigido donde los nodos son operaciones y las aristas son el flujo de datos (y de gradientes).
+
+**¿Por qué lo hacemos?** Los grafos computacionales convierten backpropagation en un procedimiento **sistemático y automático**. En lugar de derivar manualmente una función monolítica compleja, cada nodo del grafo solo necesita conocer su operación local y aplicar la regla de la cadena hacia atrás:
+
+```
+Forward pass  →→→→→→→  (izquierda a derecha): calcular salidas
+Backward pass ←←←←←←  (derecha a izquierda): propagar gradientes
+```
+
+Esta separación limpia es la razón por la que frameworks como PyTorch o TensorFlow pueden calcular gradientes automáticamente para cualquier arquitectura: construyen el grafo en el forward pass y lo recorren en reversa durante el backward pass.
+
+**¿Cómo lo hacemos?** Cada nodo almacena:
+1. Su **valor** (calculado en el forward pass)
+2. Su **gradiente acumulado** (calculado en el backward pass)
+3. Cómo propagar el gradiente hacia sus entradas (la "puerta local")
+
+**¿Qué resultados esperar?** Al final del backward pass, cada nodo tendrá el gradiente correcto `∂L/∂nodo`, que es exactamente lo que necesitamos para actualizar los parámetros.
+
 Los grafos computacionales son herramientas visuales poderosas para entender backpropagation.
 
 **Ejemplo: z = (x + y) × w**
@@ -297,6 +331,28 @@ print(x, y, w, q, z)
 **Actividad 1.2:** Dibuja el grafo computacional para `f = (x + y) × (x - y)` y calcula todos los gradientes.
 
 ### 1.3 Operaciones Básicas y sus Gradientes
+
+**¿Qué hacemos?** Catalogamos las operaciones primitivas más frecuentes en redes neuronales junto con sus gradientes locales.
+
+**¿Por qué lo hacemos?** Cualquier función compleja —por ejemplo `sigmoid(w·x + b)`— puede descomponerse en una cadena de operaciones primitivas (suma, multiplicación, exponencial). Si conocemos el gradiente local de cada primitiva, podemos calcular el gradiente de cualquier composición simplemente multiplicando los gradientes locales (regla de la cadena).
+
+**Tabla de gradientes de operaciones primitivas:**
+
+| Operación | Forward: `z = f(x, y)` | Gradiente `∂z/∂x` | Gradiente `∂z/∂y` | Notas |
+|-----------|------------------------|-------------------|-------------------|-------|
+| Suma      | `z = x + y`            | `1`               | `1`               | Distribuye el gradiente igual a ambas entradas |
+| Resta     | `z = x - y`            | `1`               | `-1`              | Invierte el signo hacia la segunda entrada |
+| Multiplicación | `z = x * y`       | `y`               | `x`               | Cada entrada recibe el valor de la otra |
+| División  | `z = x / y`            | `1/y`             | `-x/y²`           | Asimétrico: la entrada denominador tiene gradiente negativo |
+| Cuadrado  | `z = x²`               | `2x`              | —                 | Requiere guardar `x` en caché |
+| Exponencial | `z = eˣ`             | `eˣ`              | —                 | La derivada es ella misma; requiere guardar `z` en caché |
+| Logaritmo | `z = ln(x)`            | `1/x`             | —                 | Solo válido para `x > 0`; gradiente explota cerca de 0 |
+| ReLU      | `z = max(0, x)`        | `1 si x>0, 0 si x≤0` | —             | Corta el gradiente para activaciones negativas |
+| Sigmoid   | `z = σ(x)`             | `σ(x)(1-σ(x))`   | —                 | Se satura en extremos → gradiente ≈ 0 |
+
+**¿Cómo lo hacemos?** Implementamos cada operación como una clase con métodos `forward()` y `backward()`. Esto nos permite componerlas libremente para construir funciones arbitrariamente complejas.
+
+**¿Qué resultados esperar?** Para cada operación, los gradientes numéricos y analíticos deben coincidir con una diferencia relativa menor a `1e-7`.
 
 Tabla de referencia para operaciones comunes:
 
@@ -365,6 +421,29 @@ print(f"∂z/∂x = {dx}, ∂z/∂y = {dy}")  # ∂z/∂x = 4, ∂z/∂y = 3
 ## 🔬 Parte 2: Backpropagation en una Neurona (45 min)
 
 ### 2.1 Anatomía de una Neurona con Backpropagation
+
+**¿Qué hacemos?** Implementamos una neurona que, además de realizar el forward pass (`z = w·x + b`), puede ejecutar el backward pass para calcular gradientes con respecto a sus parámetros.
+
+**¿Por qué lo hacemos?** Una neurona tiene tres tipos de parámetros que necesitan gradientes:
+- `∂L/∂w` → para actualizar los pesos y mejorar la predicción
+- `∂L/∂b` → para actualizar el bias
+- `∂L/∂x` → para **propagar** el gradiente hacia las capas anteriores (esta neurona no es la primera)
+
+**La clave del caché:** Durante el forward pass, debemos guardar los valores intermedios que necesitaremos en el backward pass. Para la operación `z = w·x + b`:
+- Necesitamos `x` para calcular `∂L/∂w = ∂L/∂z · x`
+- Necesitamos `w` para calcular `∂L/∂x = ∂L/∂z · w`
+
+Si no guardamos `x` durante el forward pass, no podemos calcular `∂L/∂w` durante el backward pass.
+
+**¿Cómo lo hacemos?** Usamos un diccionario `cache` para almacenar los valores intermedios del forward pass. El backward pass recibe `dz = ∂L/∂z` (el gradiente que llega desde la capa siguiente) y calcula los tres gradientes usando la regla de la cadena:
+
+$$\frac{\partial L}{\partial w} = \frac{\partial L}{\partial z} \cdot \frac{\partial z}{\partial w} = dz \cdot x$$
+
+$$\frac{\partial L}{\partial b} = \frac{\partial L}{\partial z} \cdot \frac{\partial z}{\partial b} = dz \cdot 1 = dz$$
+
+$$\frac{\partial L}{\partial x} = \frac{\partial L}{\partial z} \cdot \frac{\partial z}{\partial x} = dz \cdot w$$
+
+**¿Qué resultados esperar?** Los gradientes calculados deben coincidir con los gradientes numéricos con precisión de al menos `1e-7`.
 
 Implementemos una neurona que puede hacer forward y backward pass.
 
@@ -443,6 +522,25 @@ print(f"Bias actualizado: {neuron.b}")
 ```
 
 ### 2.2 Neurona con Función de Activación
+
+**¿Qué hacemos?** Extendemos la neurona para incluir una función de activación no lineal (ReLU) en el forward pass y su derivada en el backward pass.
+
+**¿Por qué lo hacemos?** La función de activación introduce **no-linealidad** en la red, pero también crea una "compuerta" por la que debe pasar el gradiente. Sin considerar la activación en el backward pass, los gradientes serían incorrectos.
+
+La cadena completa para una neurona con activación es:
+
+$$\text{Forward:} \quad z = w \cdot x + b \xrightarrow{\text{ReLU}} a = \max(0, z)$$
+
+$$\text{Backward:} \quad \frac{\partial L}{\partial a} \xrightarrow{\cdot \text{ReLU}'(z)} \frac{\partial L}{\partial z} \xrightarrow{\text{neurona}} \frac{\partial L}{\partial w}, \frac{\partial L}{\partial b}, \frac{\partial L}{\partial x}$$
+
+El paso clave es `dz = da * ReLU'(z)`, donde `ReLU'(z) = 1 si z > 0, 0 si z ≤ 0`. Esto significa que cuando `z ≤ 0`, el gradiente se **bloquea completamente** (la neurona está "muerta" y no aprende). Para `z > 0`, el gradiente fluye sin modificación.
+
+**Impacto en el flujo de gradientes:**
+- **ReLU**: Flujo binario (0 o 1). Puede causar neuronas muertas, pero evita saturación.
+- **Sigmoid**: Flujo suavizado (`σ(1-σ)`). Para valores extremos de `z`, el gradiente se acerca a cero → **gradiente desvaneciente**.
+- **Tanh**: Similar a sigmoid pero con mejor simetría; aún puede saturarse.
+
+**¿Qué resultados esperar?** Cuando `z < 0`, los gradientes `dw`, `db` y `dx` deben ser cero porque ReLU bloqueó el flujo. Cuando `z > 0`, el comportamiento debe ser idéntico al de la neurona sin activación.
 
 Agreguemos una función de activación (ReLU):
 
@@ -534,6 +632,35 @@ print(f"  dL/dx = {dx}")
 
 ### 2.3 Ejemplo Completo: Entrenar una Neurona
 
+**¿Qué hacemos?** Usamos nuestra neurona con backpropagation para aprender la función lógica AND mediante descenso por gradiente.
+
+**¿Por qué AND y no XOR?** Una neurona individual —incluso con función de activación— solo puede aprender problemas **linealmente separables**: aquellos donde las clases pueden separarse con un hiperplano (una línea en 2D). Esto es una limitación fundamental:
+
+```
+AND: linealmente separable        XOR: NO linealmente separable
+(0,0)→0  (0,1)→0                  (0,0)→0  (0,1)→1
+(1,0)→0  (1,1)→1                  (1,0)→1  (1,1)→0
+
+  y                                 y
+  1 | . .                           1 | . x
+  0 | . x          /línea/          0 | x .
+     ------                            ------
+     0  1  x                           0  1  x
+
+Leyenda: x = clase 1, . = clase 0
+
+✓ Una línea puede separar           ✗ Ninguna línea puede separar
+  el "1" de los "0"                   los "1" de los "0"
+```
+
+La neurona con AND aprenderá correctamente. Con XOR, la pérdida nunca llegará a cero y las predicciones serán incorrectas. Esto demuestra por qué necesitamos **múltiples capas**: para aprender fronteras de decisión no lineales.
+
+**¿Cómo lo hacemos?** Realizamos descenso por gradiente estocástico (SGD): para cada ejemplo de entrenamiento, ejecutamos forward pass, calculamos la pérdida MSE, ejecutamos backward pass y actualizamos los parámetros.
+
+**¿Qué resultados esperar?**
+- Para **AND**: La pérdida debe decrecer y los outputs deben acercarse a 0 para `[0,0]`, `[0,1]`, `[1,0]` y a 1 para `[1,1]`.
+- Para **XOR** (Actividad 2.2): La pérdida se estancará y las predicciones serán imprecisas, evidenciando la limitación de las neuronas simples.
+
 Entrenemos una neurona para aprender la función AND:
 
 ```python
@@ -592,6 +719,38 @@ for x, y_true in zip(X_train, y_train):
 ## 🔬 Parte 3: Backpropagation en Redes Multicapa (60 min)
 
 ### 3.1 Red de 2 Capas con Backpropagation
+
+**¿Qué hacemos?** Implementamos una red neuronal con dos capas densas, cada una con su propio forward y backward pass, formando una cadena completa de backpropagation.
+
+**¿Por qué múltiples capas?** Una capa oculta transforma los datos a un **nuevo espacio de representación** donde el problema puede volverse linealmente separable. Geométricamente:
+- Una capa = un hiperplano (frontera lineal)
+- Dos capas = múltiples hiperplanos combinados (regiones convexas)
+- Tres o más capas = fronteras arbitrariamente complejas
+
+Por esto la red de 2 capas puede aprender XOR (imposible para una sola neurona): la primera capa transforma el espacio, y la segunda separa linealmente la representación resultante.
+
+**Inicialización He: ¿Por qué importa?**
+
+La inicialización correcta de los pesos es crítica para evitar problemas desde el inicio del entrenamiento:
+
+$$W \sim \mathcal{N}\left(0, \sqrt{\frac{2}{n_{in}}}\right)$$
+
+Si los pesos son demasiado **pequeños** (ej. todos cero): todas las neuronas aprenden lo mismo (simetría perfecta), los gradientes son idénticos, y la red no puede aprender representaciones diversas.
+
+Si los pesos son demasiado **grandes**: las activaciones se saturan desde el primer forward pass, los gradientes desaparecen o explotan antes de que empiece el entrenamiento.
+
+La inicialización **He** (también conocida como **inicialización Kaiming**, propuesta por Kaiming He et al., 2015) está diseñada específicamente para ReLU: el factor `√(2/n_in)` compensa que ReLU desactiva aproximadamente la mitad de las neuronas, manteniendo la varianza de las activaciones constante a lo largo de la red durante las primeras iteraciones.
+
+**¿Cómo lo hacemos?** El backward pass de la red sigue el orden inverso de las capas. El gradiente fluye de salida a entrada:
+
+```
+Forward:  X → [Capa1] → A1 → [Capa2] → A2 → L
+Backward: dX ← [Capa1] ← dA1 ← [Capa2] ← dA2 ← dL
+```
+
+Cada capa calcula `dW`, `db` para actualizar sus propios parámetros, y `dX` para pasarlo a la capa anterior.
+
+**¿Qué resultados esperar?** Con 5000 épocas en XOR, la pérdida debe bajar por debajo de 0.01 y las predicciones deben ser inequívocas: cerca de 0 para entradas iguales y cerca de 1 para entradas distintas.
 
 Implementemos una red completa con dos capas:
 
@@ -734,6 +893,23 @@ for i, (x, y_true, y_pred) in enumerate(zip(X_train, y_train, predictions)):
 
 ### 3.2 Visualización de Gradientes
 
+**¿Qué hacemos?** Medimos y graficamos la magnitud promedio de los gradientes en cada capa de la red para diagnosticar el estado del proceso de aprendizaje.
+
+**¿Por qué lo hacemos?** La magnitud del gradiente es un **indicador de salud** del entrenamiento. Nos dice cuánto está "aprendiendo" cada capa:
+
+| Magnitud del gradiente | Diagnóstico | Causa probable |
+|------------------------|-------------|----------------|
+| `~1e-1` a `~1e-3` | ✅ Saludable | Aprendizaje activo en todas las capas |
+| `< 1e-7` (capas profundas) | ⚠️ Vanishing gradients | Activaciones saturadas (sigmoid/tanh), red muy profunda |
+| `> 10` | ⚠️ Exploding gradients | Learning rate muy alto, pesos mal inicializados |
+| `NaN` o `Inf` | ❌ Colapso numérico | Overflow, división por cero, log de negativo |
+
+**Patrón esperado en redes saludables:** Los gradientes deben ser **similares en magnitud** en todas las capas. Si la capa 1 tiene gradientes 1000 veces más pequeños que la capa 2, la red solo está aprendiendo en las capas cercanas a la salida, y las capas profundas están prácticamente congeladas.
+
+**¿Cómo lo hacemos?** Ejecutamos un forward+backward pass y luego inspeccionamos las magnitudes promedio de `dW` en cada capa usando `np.mean(np.abs(dW))`.
+
+**¿Qué resultados esperar?** En una red bien inicializada con ReLU entrenando XOR, ambas capas deben mostrar gradientes no nulos de magnitud comparable, y estos deben decrecer suavemente a medida que la red converge.
+
 Es útil visualizar cómo fluyen los gradientes:
 
 ```python
@@ -775,6 +951,31 @@ visualize_gradients(net, X_train, y_train)
 ## 🔬 Parte 4: Verificación de Gradientes (30 min)
 
 ### 4.1 Gradient Checking
+
+**¿Qué hacemos?** Verificamos matemáticamente que nuestra implementación analítica de backpropagation es correcta, comparándola con gradientes calculados numéricamente.
+
+**¿Por qué lo hacemos?** Los bugs en backpropagation son insidiosos: la red puede seguir entrenando, la pérdida puede incluso bajar, pero los gradientes incorrectos llevan a un aprendizaje subóptimo o a fallos sutiles. El gradient checking es la única forma confiable de garantizar que la implementación es correcta.
+
+**El método de diferencias finitas centradas:**
+
+La derivada en un punto `x` se puede aproximar numéricamente usando la fórmula:
+
+$$f'(x) \approx \frac{f(x + \varepsilon) - f(x - \varepsilon)}{2\varepsilon}$$
+
+Esta es más precisa que la diferencia hacia adelante `[f(x+ε) - f(x)] / ε` porque el error de aproximación es `O(ε²)` vs `O(ε)`. Para `ε = 1e-5`, el error es del orden de `1e-10`, mucho más pequeño que las diferencias que observaríamos en un bug real.
+
+**La métrica de diferencia relativa:**
+
+No comparamos la diferencia absoluta `|grad_analítico - grad_numérico|` porque los gradientes pueden tener magnitudes muy diferentes. Usamos:
+
+$$\text{diferencia relativa} = \frac{\|g_{\text{analítico}} - g_{\text{numérico}}\|_2}{\|g_{\text{analítico}}\|_2 + \|g_{\text{numérico}}\|_2}$$
+
+Interpretación:
+- `< 1e-7` → ✅ Implementación correcta
+- `1e-7` a `1e-5` → ⚠️ Probablemente correcto (puede ser error numérico)
+- `> 1e-5` → ❌ Hay un bug en backpropagation
+
+**¿Qué resultados esperar?** Con una implementación correcta, la diferencia relativa debe ser menor a `1e-7`. Si introduces un bug intencional (como olvidar trasponer una matriz), la diferencia subirá a `1e-3` o mayor.
 
 La verificación numérica de gradientes es CRUCIAL para asegurar que backpropagation esté implementado correctamente.
 
@@ -885,6 +1086,33 @@ difference = gradient_check(net, X_train, y_train)
 
 ### 4.2 Consejos para Debugging
 
+**¿Qué hacemos?** Aplicamos una estrategia sistemática para encontrar y corregir bugs en implementaciones de backpropagation.
+
+**¿Por qué lo hacemos?** Backpropagation tiene varios puntos de falla comunes que son difíciles de detectar a simple vista porque el código puede ejecutarse sin errores pero producir gradientes incorrectos. Conocer los bugs más frecuentes acelera enormemente el proceso de depuración.
+
+**Los bugs más comunes en backpropagation:**
+
+1. **Transpuesta incorrecta:** En capas densas, `dW = X.T @ dZ` (no `X @ dZ`). Un fallo de dimensiones a veces se "resuelve" transponiéndola en el lugar equivocado.
+
+2. **No dividir por batch size:** Los gradientes deben promediar sobre el batch: `dW = (1/m) * X.T @ dZ`. Sin este factor, el learning rate efectivo escala con el tamaño del batch.
+
+3. **No sumar sobre el batch en bias:** `db = (1/m) * np.sum(dZ, axis=0)`. Olvidar el `sum` produce dimensiones incorrectas o gradientes escalonados.
+
+4. **Confundir `*` y `@`:** `*` es elemento-a-elemento (Hadamard), `@` es multiplicación matricial. Intercambiarlos produce resultados con dimensiones incorrectas o incorrectos silenciosamente.
+
+5. **No guardar el caché:** Si en el forward pass no guardas `x` o `z`, no puedes calcular los gradientes correctos en el backward pass.
+
+6. **Olvidar el gradiente de la activación:** Para una capa con ReLU, el backward pass es `dZ = dA * relu_prime(Z)`, no simplemente `dZ = dA`.
+
+**Estrategia de debugging recomendada:**
+1. Verifica las **formas (shapes)** de todos los tensores en forward y backward
+2. Comprueba que no hay `NaN` ni `Inf` en ningún punto
+3. Ejecuta gradient checking con un batch pequeño (4-8 ejemplos)
+4. Si falla, aísla la capa problemática verificando capa por capa
+5. Usa prints de la magnitud media (`np.mean(np.abs(tensor))`) para detectar valores anómalos
+
+**¿Qué resultados esperar?** La herramienta de debugging debe mostrar formas consistentes, valores sin NaN/Inf, y magnitudes de gradiente en rango razonable (ni cercanas a 0 ni superiores a 10 en las primeras iteraciones).
+
 ```python
 def debug_backprop(network, X, y):
     """Herramienta de debugging para backpropagation"""
@@ -936,6 +1164,29 @@ debug_backprop(net, X_train, y_train)
 ## 📊 Análisis Final de Rendimiento
 
 ### Comparación: Antes vs Después de Backpropagation
+
+**¿Qué hacemos?** Comparamos el comportamiento de una red con pesos aleatorios (sin entrenar) contra la misma red después del proceso de backpropagation + descenso por gradiente.
+
+**¿Por qué lo hacemos?** Esta comparación cuantifica directamente el **valor del aprendizaje**: transforma una función aleatoria e inútil en una función que modela correctamente el patrón en los datos. Las métricas que observamos son:
+
+- **Pérdida inicial vs final**: Mide cuánto mejoró la función de predicción. Una reducción del 95%+ indica aprendizaje exitoso.
+- **Predicciones antes/después**: Confirma que la red pasó de respuestas aleatorias a respuestas correctas.
+- **Curva de aprendizaje**: Revela la dinámica del entrenamiento — ¿baja suavemente? ¿tiene mesetas? ¿oscila?
+
+**Interpretación de la curva de aprendizaje:**
+
+| Forma de la curva | Diagnóstico |
+|-------------------|-------------|
+| Descenso suave y estable | ✅ Learning rate adecuado |
+| Descenso en "escalones" (plateaus) | Posible mínimo local o learning rate muy pequeño |
+| Oscilaciones grandes | Learning rate demasiado alto |
+| Descenso rápido inicial, luego estancamiento | Red convergiendo a un mínimo, puede necesitar más capacidad |
+| Pérdida constante (no baja) | Bug en backpropagation o arquitectura insuficiente |
+
+**¿Qué resultados esperar?** Para XOR con la arquitectura 2→4→1, esperamos:
+- Pérdida inicial: ~0.25 (equivalente a predicciones aleatorias para clasificación binaria)
+- Pérdida final: < 0.01 después de ~5000 épocas
+- Mejora porcentual: > 95%
 
 ```python
 # Sin entrenar (pesos aleatorios)
