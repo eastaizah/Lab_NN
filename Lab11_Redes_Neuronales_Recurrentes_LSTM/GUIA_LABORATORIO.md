@@ -1285,6 +1285,60 @@ print("Figura guardada como 'lstm_sentimiento.png'")
 
 ### 3.2 Predicción de Series de Tiempo con LSTM
 
+Las series de tiempo son secuencias de valores ordenados cronológicamente — precios de bolsa, temperaturas horarias, señales de sensores — donde el valor en el instante *t* depende de los valores anteriores. El LSTM es especialmente adecuado para este problema porque sus **puertas de memoria** le permiten retener patrones de largo plazo sin que el gradiente desaparezca.
+
+#### Enfoque de ventana deslizante
+
+La estrategia estándar consiste en transformar la serie en pares supervisados *(X, y)*:
+
+- **X**: las últimas `ventana` observaciones (p. ej., los 20 valores anteriores).
+- **y**: la(s) próxima(s) observación(es) que queremos predecir.
+
+La ventana se desplaza de uno en uno a lo largo de la serie, generando tantos ejemplos como `len(serie) - ventana - horizonte + 1`.
+
+#### Serie sintética sinusoidal con ruido
+
+Usamos una combinación de dos sinusoides con ruido gaussiano añadido. Esta señal es ideal para pruebas porque:
+
+1. Tiene una estructura periódica conocida → podemos medir cuán bien la captura el modelo.
+2. Es suficientemente compleja (dos frecuencias + ruido) para que un modelo lineal falle.
+3. Es reproducible con una semilla fija, lo que permite comparaciones justas.
+
+#### División temporal del dataset
+
+A diferencia de los datos tabulares, en series de tiempo **NO se mezclan los índices** antes de dividir. El orden cronológico es fundamental. La división estándar es:
+
+| Partición | Proporción | Uso |
+|-----------|-----------|-----|
+| Train     | 70 %      | Ajuste de pesos |
+| Validación| 15 %      | Selección de hiperparámetros |
+| Test      | 15 %      | Evaluación final imparcial |
+
+#### Arquitectura `LSTMSeriesPredictor`
+
+El modelo sigue el esquema **LSTM → capas FC**:
+
+```
+Entrada (batch, seq_len=ventana, features=1)
+      ↓
+LSTM (num_layers, hidden_size, dropout entre capas)
+      ↓  solo el último hidden state h_T
+FC1 → ReLU → Dropout
+      ↓
+FC2 → salida escalar (horizonte=1)
+```
+
+#### Función de pérdida y gradient clipping
+
+Para regresión se usa **MSE (Error Cuadrático Medio)**, que penaliza errores grandes proporcionalmente al cuadrado. A diferencia de CrossEntropy (clasificación), no hay función softmax en la salida.
+
+Las RNNs son propensas al problema del **gradiente explosivo**. El `gradient clipping` trunca la norma del gradiente si supera un umbral (p. ej., `max_norm=1.0`), estabilizando el entrenamiento sin impedir el aprendizaje.
+
+**Resultados esperados:**
+- La pérdida MSE de entrenamiento debe descender por debajo de **0.005** en pocas épocas.
+- La curva predicha debe seguir la forma sinusoidal de la serie real con pequeños desfases.
+- El modelo debe generalizar bien al conjunto de test si no hay sobreajuste severo.
+
 ```python
 print("\n--- LSTM para Predicción de Series de Tiempo ---")
 
@@ -1426,6 +1480,31 @@ print("Figura guardada como 'lstm_series_tiempo.png'")
 
 ### 3.3 GRU como Alternativa al LSTM
 
+La **GRU (Gated Recurrent Unit)**, propuesta por Cho et al. en 2014, es una arquitectura recurrente diseñada para simplificar el LSTM manteniendo su capacidad de capturar dependencias a largo plazo.
+
+#### Arquitectura de la GRU
+
+La GRU reduce las cuatro matrices de pesos del LSTM a **tres**, mediante dos mecanismos clave:
+
+| Puerta | Función |
+|--------|---------|
+| **Reset gate** (*r_t*) | Controla cuánto del estado anterior se olvida al calcular el candidato. Con *r_t ≈ 0* el modelo ignora el pasado (útil para el inicio de una nueva frase). |
+| **Update gate** (*z_t*) | Decide qué proporción del estado anterior se conserva vs. qué proporción del nuevo candidato se adopta. Combina las puertas *forget* e *input* del LSTM en una sola operación. |
+
+La fusión del *cell state* y el *hidden state* en un único vector `h_t` es la simplificación más notable respecto al LSTM.
+
+#### ¿Cuándo preferir GRU sobre LSTM?
+
+- **Datos limitados**: Con pocos ejemplos, la menor cantidad de parámetros de la GRU reduce el riesgo de sobreajuste.
+- **Entrenamiento más rápido**: Al tener ~25 % menos parámetros, cada época es más rápida.
+- **Rendimiento comparable**: En series de tiempo, NLP de mediana complejidad y señales de audio, la GRU iguala al LSTM en la mayoría de benchmarks.
+- **LSTM preferible**: Cuando la tarea requiere memorias muy selectivas a largo plazo (e.g., comprensión de documentos extensos) o cuando se dispone de suficientes datos para aprovechar la mayor capacidad expresiva del LSTM.
+
+**Resultados esperados:**
+- La GRU debe tener aproximadamente un **15–20 % menos de parámetros** que el LSTM equivalente para el mismo `hidden_size`.
+- El tiempo de entrenamiento por época debe ser menor que el del LSTM.
+- La pérdida final de validación debe ser comparable (diferencia < 5 % en la mayoría de los casos) a la del `LSTMSeriesPredictor`.
+
 ```python
 print("\n--- GRU (Gated Recurrent Unit) como alternativa al LSTM ---")
 
@@ -1505,6 +1584,32 @@ print(f"Diferencia:      {lstm_params - gru_params:,} ({100*(lstm_params-gru_par
 
 ### 4.1 LSTM Bidireccional
 
+En un LSTM unidireccional, el estado oculto en el instante *t* sólo tiene acceso a los tokens anteriores (*x_1, …, x_t*). Sin embargo, muchas tareas de procesamiento de lenguaje natural requieren entender el contexto completo — tanto lo que precede como lo que sigue a un token. El **LSTM Bidireccional (BiLSTM)** soluciona esto procesando la secuencia en **dos pasadas simultáneas**:
+
+1. **LSTM hacia adelante** (*forward*): lee la secuencia de izquierda a derecha → produce `h_fwd_t`.
+2. **LSTM hacia atrás** (*backward*): lee la secuencia de derecha a izquierda → produce `h_bwd_t`.
+
+Los dos estados se **concatenan** en cada paso de tiempo:
+
+```
+h_bi_t = [h_fwd_t ; h_bwd_t]   →  dimensión = 2 × hidden_size
+```
+
+#### Consecuencias prácticas
+
+- **Dimensión de salida duplicada**: si `hidden_size=64`, la salida del BiLSTM tiene dimensión 128. Las capas lineales downstream deben tener en cuenta este factor 2.
+- **Mayor contexto, mejor rendimiento**: en tareas como *Named Entity Recognition* (NER), *Question Answering* y traducción automática, el BiLSTM supera sistemáticamente al LSTM unidireccional porque cada posición "conoce" toda la frase.
+- **No apto para streaming en tiempo real**: el LSTM backward necesita toda la secuencia antes de comenzar → introduce latencia equivalente a la longitud de la secuencia.
+
+#### Casos de uso típicos
+
+| ✅ Apropiado | ❌ No apropiado |
+|-------------|----------------|
+| Clasificación de texto completo | Generación de texto token a token |
+| NER y etiquetado POS | Traducción autoregresiva (decoder) |
+| Extracción de información | Predicción de series de tiempo en tiempo real |
+| Encoders de Seq2Seq | |
+
 ```python
 print("=" * 60)
 print("LSTM BIDIRECCIONAL")
@@ -1575,6 +1680,29 @@ print(f"Factor BiLSTM/LSTM:             {bilstm_params/unidirec_params:.2f}x")
 
 ### 4.2 LSTM Apilado (Stacked LSTM)
 
+Así como las CNN ganan expresividad apilando capas convolucionales que aprenden jerarquías de características (bordes → texturas → formas), el **Stacked LSTM** apila capas recurrentes para construir **representaciones jerárquicas de la secuencia**:
+
+- **Capa 1**: aprende patrones locales y de corto plazo (n-gramas, fluctuaciones rápidas).
+- **Capa 2**: combina esos patrones en estructuras de mediano alcance (frases, ciclos periódicos).
+- **Capa 3+**: captura dependencias de largo alcance y patrones globales.
+
+En PyTorch, `nn.LSTM(num_layers=N)` implementa esto automáticamente: la salida completa de cada capa (*todos* los hidden states, no solo el último) se pasa como entrada a la capa siguiente.
+
+#### Compensaciones a tener en cuenta
+
+| Factor | 2 capas | 4+ capas |
+|--------|---------|---------|
+| Capacidad del modelo | ✅ Mayor | ✅✅ Mucho mayor |
+| Riesgo de sobreajuste | Moderado | ⚠️ Alto |
+| Tiempo de entrenamiento | Moderado | Lento |
+| Dificultad de optimización | Manejable | ⚠️ Requiere cuidado |
+
+**Guía práctica**: para la mayoría de las tareas, **2–3 capas** ofrecen el mejor equilibrio. Añadir más capas sin regularización adecuada rara vez mejora los resultados y puede empeorarlos. El **dropout entre capas** (parámetro `dropout` de `nn.LSTM`) es esencial para evitar el sobreajuste al apilar.
+
+**Resultados esperados:**
+- El número de parámetros crece aproximadamente de forma **lineal** con el número de capas (la primera capa tiene más parámetros porque recibe la entrada original; las capas siguientes reciben `hidden_size`).
+- Más de 3 capas no suele mejorar el rendimiento en datasets pequeños/medianos.
+
 ```python
 print("\n--- LSTM Apilado (Stacked LSTM) ---")
 
@@ -1610,6 +1738,27 @@ for cfg in configs:
 ```
 
 ### 4.3 Arquitectura Encoder-Decoder
+
+El paradigma **Seq2Seq** (Sutskever et al., 2014) permite que una red neuronal transforme una secuencia de longitud arbitraria en otra secuencia de longitud diferente. Esta capacidad abre la puerta a tareas donde la entrada y la salida no tienen la misma longitud ni vocabulario.
+
+#### El paradigma Encoder-Decoder
+
+El modelo se divide en dos componentes especializados:
+
+- **Encoder**: lee *toda* la secuencia de entrada y comprime su información en un **vector de contexto** — el último estado oculto del LSTM encoder. El encoder "entiende" la entrada pero no produce salida directamente.
+- **Decoder**: recibe el vector de contexto como estado inicial y genera la secuencia de salida **token por token**, de forma autoregresiva (cada token generado alimenta la siguiente predicción).
+
+#### El cuello de botella del vector de contexto
+
+La limitación fundamental del Encoder-Decoder clásico es que **toda la información de la secuencia de entrada debe comprimirse en un único vector de tamaño fijo**. Para secuencias largas (más de 20–30 tokens), este cuello de botella provoca que el decoder "olvide" partes de la entrada, degradando la calidad de la salida.
+
+#### Teacher Forcing
+
+Durante el entrenamiento se suele usar **teacher forcing**: en lugar de alimentar al decoder con sus propias predicciones (que pueden ser erróneas al inicio), se le alimenta con los tokens correctos de la secuencia objetivo. Esto acelera la convergencia pero puede crear una discrepancia entre entrenamiento e inferencia (*exposure bias*).
+
+#### Conexión con el Laboratorio 12
+
+Esta limitación del vector de contexto fue la motivación directa para el **mecanismo de atención** (Bahdanau et al., 2015), que permite al decoder acceder a *todos* los estados ocultos del encoder — no solo al último — ponderando su relevancia para cada paso de decodificación. La atención es la base conceptual de los Transformers que estudiarás en el **Laboratorio 12**.
 
 ```python
 print("\n--- Arquitectura Encoder-Decoder ---")
@@ -1741,6 +1890,42 @@ print(f"\n→ Ver Lab 12 (Transformers) para la solución al cuello de botella c
 ## 📊 Análisis de Rendimiento
 
 ### Benchmark: RNN vs LSTM vs GRU
+
+Una vez comprendidas las tres arquitecturas recurrentes principales, es fundamental **compararlas empíricamente** bajo condiciones idénticas para tomar decisiones de diseño informadas. Este benchmark mide tres dimensiones clave:
+
+1. **Número de parámetros**: indica la capacidad del modelo y el costo de memoria.
+2. **Tiempo de entrenamiento por época**: relevante para iteración rápida y despliegue.
+3. **Pérdida final de validación**: mide la calidad del modelo en datos no vistos.
+
+#### Configuración experimental
+
+Para que la comparación sea justa, todos los modelos se entrenan con:
+
+- El **mismo `hidden_size`** → misma dimensionalidad del espacio latente.
+- El **mismo número de capas** (2).
+- El **mismo número de épocas** y tasa de aprendizaje.
+- El **mismo dataset** (clasificación de secuencias sintéticas).
+
+#### ¿Qué esperar?
+
+| Arquitectura | Parámetros | Velocidad | Calidad |
+|-------------|-----------|-----------|---------|
+| **RNN vanilla** | ⬇️ Menor | ⬆️ Más rápido | ⬇️ Peor en secuencias largas |
+| **GRU** | Medio | Rápido | ✅ Buena |
+| **LSTM** | ⬆️ Mayor | Más lento | ✅ Buena / ligeramente superior |
+
+La RNN vanilla tiene el menor número de parámetros pero falla en secuencias largas por el problema del gradiente desvaneciente. La GRU tiene aproximadamente **¾ de los parámetros del LSTM** (3 matrices vs. 4) y suele alcanzar un rendimiento similar en tareas de mediana complejidad. El LSTM puede superar a la GRU en tareas que requieren memorias muy selectivas a largo plazo.
+
+#### Criterios de selección de modelo
+
+- **Prioridad: velocidad / recursos limitados** → GRU o RNN (si secuencias cortas).
+- **Prioridad: calidad / secuencias largas** → LSTM o BiLSTM.
+- **Prioridad: balance óptimo** → GRU (regla empírica más frecuente en la literatura).
+
+**Resultados esperados:**
+- El LSTM tendrá el mayor número de parámetros (~33 % más que la GRU para el mismo `hidden_size`).
+- La GRU tendrá un tiempo de entrenamiento por época entre un 10 y 25 % menor que el LSTM.
+- Las pérdidas finales de GRU y LSTM serán comparables; la RNN vanilla tendrá mayor pérdida.
 
 ```python
 import time
