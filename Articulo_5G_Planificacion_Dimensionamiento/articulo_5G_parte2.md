@@ -272,7 +272,7 @@ La Tabla II resume los resultados de métricas clave reportados en estudios de p
 **TABLA II**
 **Métricas de Rendimiento en Estudios de Planificación de Redes 5G**
 
-| Estudio | Banda | M (antenas) | EE (bits/J) | SE (bits/s/Hz) | Cobertura | Ref. |
+| Estudio | Banda | M (antenas) | EE (bits/Joule) | SE (bits/s/Hz) | Cobertura | Ref. |
 |---------|-------|-------------|-------------|----------------|-----------|------|
 | Björnson et al. (2019) | 3.5 GHz | 100 | 12.4 | 8.2 | 95% | [40] |
 | Rappaport et al. (2017) | 28 GHz | 64 | 8.7 | 5.1 | 82% | [51] |
@@ -331,7 +331,7 @@ A pesar del avance significativo documentado en esta revisión, persisten desaf�
 
 Las tendencias evolutivas más relevantes para el trabajo futuro en planificación y dimensionamiento de redes inalámbricas incluyen:
 
-**Evolución hacia 6G:** La sexta generación de comunicaciones móviles, prevista para despliegue comercial hacia 2030, contempla bandas de comunicación en el rango de terahercios (THz, 0.1–10 THz), con anchos de banda potenciales de varios cientos de GHz, tasas de datos de hasta 1 Tbps, y latencias sub-milisegundo. La planificación de redes THz requerirá nuevos modelos de canal (propagación THz es dominada por absorción molecular del vapor de agua), nuevas arquitecturas de antena (metasuperficies inteligentes, *Reconfigurable Intelligent Surfaces*, RIS) y nuevos algoritmos de cobertura adaptativa.
+**Evolución hacia 6G:** La sexta generación de comunicaciones móviles, prevista para despliegue comercial hacia 2030, contempla bandas de comunicación en el rango de terahercios (THz, 0.1–10 THz), con anchos de banda potenciales de varios cientos de GHz, tasas de datos de hasta 1 Tbps, y latencias sub-milisegundo. La planificación de redes THz requerirá nuevos modelos de canal (la propagación en THz está dominada por la absorción molecular del vapor de agua), nuevas arquitecturas de antena (metasuperficies inteligentes, *Reconfigurable Intelligent Surfaces*, RIS) y nuevos algoritmos de cobertura adaptativa.
 
 **Redes Nativas de IA (*AI-Native Networks*):** La integración de IA como función nativa de la pila de protocolos de red (no como capa de gestión superpuesta) es la visión a largo plazo de 3GPP Release 18+ y del proyecto O-RAN. Las redes nativas de IA aprenderán en tiempo real los patrones de canal, tráfico e interferencia para optimizar de forma holística el sistema, eliminando la necesidad de modelos paramétricos explícitos.
 
