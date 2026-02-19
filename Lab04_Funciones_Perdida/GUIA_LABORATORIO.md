@@ -81,9 +81,45 @@ Objetivo: L → 0 (minimizar pérdida)
 - Clasificación: Spam detection, reconocimiento de imágenes
 - Optimización: Entrenar cualquier modelo de ML
 
+---
+
+## 🤔 Preguntas de Reflexión
+
+> Antes de comenzar a programar, dedica unos minutos a reflexionar sobre las siguientes preguntas. No necesitas tener las respuestas correctas ahora; el objetivo es activar tu pensamiento crítico y motivar el aprendizaje.
+
+1. **Sobre la elección de la función de pérdida:** Si tienes un problema de predicción de precios de casas donde algunos valores son extremadamente altos (mansiones), ¿qué función de pérdida crees que sería más adecuada, MSE o MAE? ¿Por qué los errores grandes deberían o no deberían penalizarse más?
+
+2. **Sobre la interpretación probabilística:** En clasificación binaria, la cross-entropy utiliza logaritmos. ¿Qué crees que sucede con la pérdida cuando el modelo predice una probabilidad de 0.99 para la clase correcta? ¿Y cuando predice 0.01? ¿Por qué el logaritmo captura mejor esta asimetría que el error cuadrático?
+
+3. **Sobre el learning rate:** Imagina que estás bajando una montaña en la oscuridad. El learning rate sería el tamaño de cada paso. ¿Qué pasaría si tus pasos fueran demasiado grandes? ¿Y demasiado pequeños? ¿Existe un tamaño de paso "perfecto" universal?
+
+4. **Sobre overfitting:** Un modelo entrena durante 1000 épocas y logra un error de entrenamiento casi cero, pero su error en datos nuevos es 10 veces mayor. ¿Qué crees que está ocurriendo? ¿Cómo distinguirías este fenómeno durante el entrenamiento?
+
+5. **Sobre regularización:** Si la regularización penaliza los pesos grandes, ¿estamos realmente "empeorando" el entrenamiento a propósito? ¿Por qué sacrificar rendimiento en entrenamiento podría mejorar el rendimiento en datos nuevos?
+
+6. **Sobre la relación pérdida-derivada:** El gradiente de la función de pérdida indica la dirección de mayor crecimiento. Si queremos minimizar la pérdida, ¿en qué dirección deberíamos mover los parámetros? ¿Por qué substraemos el gradiente en lugar de sumarlo?
+
+---
+
 ## 🔬 Parte 1: Funciones para Regresión (45 min)
 
 ### 1.1 Mean Squared Error (MSE)
+
+**¿Qué hacemos?** Implementamos el Error Cuadrático Medio (MSE) y su derivada, la función de pérdida más utilizada para problemas de regresión.
+
+**¿Por qué lo hacemos?** MSE mide el promedio de los cuadrados de las diferencias entre los valores predichos y los reales. Al elevar al cuadrado, se consiguen dos efectos deseables: los errores siempre son positivos (no se cancelan entre sí) y los errores grandes reciben una penalización desproporcionadamente mayor que los errores pequeños. Matemáticamente:
+
+$$\text{MSE}(y, \hat{y}) = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+
+La derivada respecto a las predicciones $\hat{y}$ es:
+
+$$\frac{\partial \text{MSE}}{\partial \hat{y}} = \frac{2}{n}(\hat{y} - y)$$
+
+Esta derivada es la que se utiliza en backpropagation para ajustar los parámetros de la red.
+
+**¿Cómo lo hacemos?** Usamos operaciones vectorizadas de NumPy: calculamos la diferencia elemento a elemento, la elevamos al cuadrado y tomamos la media. La derivada es simplemente el doble de la diferencia normalizada por el tamaño del conjunto.
+
+**¿Qué resultados debemos esperar?** Para predicciones perfectas `y_pred == y_true`, MSE debe dar exactamente 0. A medida que las predicciones se alejan de los valores reales, MSE crece cuadráticamente. Un error promedio de 1 unidad da MSE = 1, pero un error promedio de 2 unidades da MSE = 4 (no 2).
 
 ```python
 def mse(y_true, y_pred):
@@ -100,6 +136,22 @@ print(f"MSE: {mse(y_true, y_pred)}")  # 1.0
 
 ### 1.2 Mean Absolute Error (MAE)
 
+**¿Qué hacemos?** Implementamos el Error Absoluto Medio (MAE) y su derivada (subgradiente), una alternativa a MSE más robusta ante valores atípicos.
+
+**¿Por qué lo hacemos?** A diferencia de MSE, MAE trata todos los errores de forma lineal, sin importar su magnitud. Esto lo hace menos sensible a outliers. La fórmula es:
+
+$$\text{MAE}(y, \hat{y}) = \frac{1}{n}\sum_{i=1}^{n}|y_i - \hat{y}_i|$$
+
+Su derivada (técnicamente un subgradiente, ya que el valor absoluto no es diferenciable en 0) es:
+
+$$\frac{\partial \text{MAE}}{\partial \hat{y}} = \frac{1}{n} \cdot \text{sign}(\hat{y} - y)$$
+
+donde $\text{sign}(x) = +1$ si $x > 0$ y $-1$ si $x < 0$.
+
+**¿Cómo lo hacemos?** NumPy provee `np.abs()` para el valor absoluto y `np.sign()` para la función signo. Nótese que el subgradiente siempre tiene magnitud constante ±1/n, lo que puede hacer la optimización menos eficiente cerca del mínimo.
+
+**¿Qué resultados debemos esperar?** Para el mismo conjunto de predicciones, MAE generalmente da un valor menor o igual que la raíz cuadrada de MSE. La diferencia se amplía cuando hay errores grandes (outliers).
+
 ```python
 def mae(y_true, y_pred):
     return np.mean(np.abs(y_true - y_pred))
@@ -112,6 +164,14 @@ print(f"MAE: {mae(y_true, y_pred)}")  # 1.0
 ```
 
 ### 1.3 Comparación con Outliers
+
+**¿Qué hacemos?** Comparamos el comportamiento de MSE y MAE cuando el conjunto de datos contiene un valor atípico (outlier) extremo.
+
+**¿Por qué lo hacemos?** Comprender la sensibilidad diferencial a outliers es fundamental para elegir la función de pérdida correcta. En datos reales, los outliers son frecuentes (errores de medición, casos excepcionales) y pueden distorsionar el entrenamiento. MSE penaliza los outliers cuadráticamente: un error 10 veces mayor produce una pérdida 100 veces mayor. MAE los trata linealmente, siendo mucho más robusto.
+
+**¿Cómo lo hacemos?** Creamos un conjunto de datos donde todos los errores son pequeños excepto uno que es extremadamente grande (100 en lugar del valor real 5). Calculamos MSE y MAE para comparar el impacto.
+
+**¿Qué resultados debemos esperar?** MSE reportará un valor muy alto (dominado por el outlier elevado al cuadrado), mientras que MAE reportará un valor más moderado. Esto ilustra por qué en problemas donde los outliers son inevitables o representativos (como detección de fraude), MAE o funciones híbridas como Huber Loss son preferibles.
 
 ```python
 y_true = np.array([1, 2, 3, 4, 5])
@@ -127,9 +187,23 @@ print(f"MAE: {mae(y_true, y_pred):.2f}")  # Menor (más robusto)
 2. Comparar MSE vs MAE con diferentes datos
 3. Visualizar curvas de pérdida
 
+---
+
 ## 🔬 Parte 2: Funciones para Clasificación (45 min)
 
 ### 2.1 Binary Cross-Entropy
+
+**¿Qué hacemos?** Implementamos la Entropía Cruzada Binaria (BCE), la función de pérdida estándar para problemas de clasificación binaria (dos clases), junto con su derivada.
+
+**¿Por qué lo hacemos?** Para clasificación binaria, las predicciones son probabilidades $\hat{y} \in (0, 1)$ obtenidas con la función Sigmoid. MSE no es adecuado aquí porque el espacio de probabilidades no es lineal. La BCE tiene una interpretación probabilística directa: mide la log-verosimilitud negativa bajo un modelo de Bernoulli:
+
+$$\text{BCE}(y, \hat{y}) = -\frac{1}{n}\sum_{i=1}^{n}\left[y_i \log(\hat{y}_i) + (1-y_i)\log(1-\hat{y}_i)\right]$$
+
+Cuando la predicción $\hat{y}$ es correcta y confiada (cercana a 1 para $y=1$, o a 0 para $y=0$), la pérdida es mínima. Cuando el modelo predice con alta confianza la clase equivocada, el logaritmo genera una penalización muy grande (el logaritmo de un número cercano a 0 tiende a $-\infty$). La derivada combinada con Sigmoid simplifica elegantemente a $\hat{y} - y$.
+
+**¿Cómo lo hacemos?** Usamos `np.clip()` para evitar el cálculo de $\log(0)$, que es indefinido. Esto añade un epsilon numérico ($\epsilon = 10^{-15}$) como límite inferior y superior de las predicciones.
+
+**¿Qué resultados debemos esperar?** Predicciones perfectas producen una pérdida cercana a 0. Para el ejemplo dado (predicciones de alta confianza correctas), esperamos una BCE muy pequeña. Si intercambiamos `y_true` y `y_pred`, la pérdida aumentará dramáticamente.
 
 ```python
 def binary_cross_entropy(y_true, y_pred, epsilon=1e-15):
@@ -149,6 +223,18 @@ print(f"BCE: {binary_cross_entropy(y_true, y_pred):.4f}")
 
 ### 2.2 Categorical Cross-Entropy
 
+**¿Qué hacemos?** Implementamos la Entropía Cruzada Categórica (CCE), la extensión de BCE para problemas de clasificación multiclase (más de dos clases), donde las etiquetas están en formato *one-hot*.
+
+**¿Por qué lo hacemos?** Cuando hay $C$ clases posibles, las predicciones son vectores de probabilidad $\hat{y} \in \mathbb{R}^C$ producidos por Softmax, y las etiquetas reales se representan en formato one-hot (vector con un 1 en la posición de la clase correcta y 0 en el resto). La CCE mide qué tan lejos está la distribución predicha de la distribución real:
+
+$$\text{CCE}(y, \hat{y}) = -\frac{1}{n}\sum_{i=1}^{n}\sum_{c=1}^{C} y_{i,c} \log(\hat{y}_{i,c})$$
+
+Dado que $y$ es one-hot, en la práctica solo el término correspondiente a la clase correcta contribuye a la suma. La pérdida es simplemente $-\log(\hat{y}_{\text{clase correcta}})$: cuanto mayor sea la probabilidad asignada a la clase correcta, menor será la pérdida.
+
+**¿Cómo lo hacemos?** Multiplicamos elemento a elemento `y_true * np.log(y_pred)` y sumamos a lo largo del eje de las clases (`axis=1`), luego tomamos el negativo de la media. El clipping previene errores numéricos.
+
+**¿Qué resultados debemos esperar?** Para el ejemplo dado, con probabilidades de 0.7 y 0.8 para las clases correctas, esperamos una pérdida pequeña (alrededor de 0.2-0.3). Si el modelo asignara probabilidades bajas a las clases correctas, la pérdida aumentaría significativamente.
+
 ```python
 def categorical_cross_entropy(y_true, y_pred, epsilon=1e-15):
     # y_true: one-hot encoded
@@ -163,6 +249,20 @@ print(f"CCE: {categorical_cross_entropy(y_true, y_pred):.4f}")
 ```
 
 ### 2.3 Sparse Categorical Cross-Entropy
+
+**¿Qué hacemos?** Implementamos la versión "sparse" de CCE, que acepta directamente los índices de clase en lugar de vectores one-hot.
+
+**¿Por qué lo hacemos?** Cuando el número de clases $C$ es muy grande (por ejemplo, 10,000 categorías en clasificación de palabras), almacenar las etiquetas en formato one-hot requiere una matriz de tamaño $n \times C$, lo cual puede ser prohibitivamente costoso en memoria. La Sparse CCE acepta simplemente el índice de la clase correcta (un entero), siendo matemáticamente equivalente a CCE pero mucho más eficiente en memoria:
+
+$$\text{Sparse CCE}(y, \hat{y}) = -\frac{1}{n}\sum_{i=1}^{n}\log(\hat{y}_{i, y_i})$$
+
+donde $y_i$ es el índice (entero) de la clase correcta para la muestra $i$. En comparación con CCE:
+- **CCE**: etiquetas como `[[0, 1, 0], [1, 0, 0]]` (one-hot, más memoria)
+- **Sparse CCE**: etiquetas como `[1, 0]` (índices, mucho menos memoria)
+
+**¿Cómo lo hacemos?** Usamos indexación avanzada de NumPy (`y_pred[range(n), y_true]`) para seleccionar directamente la probabilidad predicha para cada clase correcta, evitando construir la representación one-hot.
+
+**¿Qué resultados debemos esperar?** Para las mismas predicciones y etiquetas (expresadas de forma diferente), Sparse CCE debe producir exactamente el mismo resultado numérico que CCE. Esto sirve como verificación de consistencia entre las dos implementaciones.
 
 ```python
 def sparse_categorical_cross_entropy(y_true, y_pred, epsilon=1e-15):
@@ -184,9 +284,26 @@ print(f"Sparse CCE: {sparse_categorical_cross_entropy(y_true, y_pred):.4f}")
 2. Comparar BCE vs MSE para clasificación
 3. Verificar derivadas numéricamente
 
+---
+
 ## 🔬 Parte 3: Gradient Descent (45 min)
 
 ### 3.1 Implementación Básica
+
+**¿Qué hacemos?** Implementamos el algoritmo de Gradient Descent (Descenso de Gradiente) desde cero para optimizar los parámetros de un modelo de regresión lineal.
+
+**¿Por qué lo hacemos?** Gradient Descent es el algoritmo fundamental de optimización en deep learning. Su objetivo es encontrar los parámetros $w$ (pesos) y $b$ (sesgo) que minimizan la función de pérdida. El algoritmo sigue estos pasos en cada iteración (época):
+
+1. **Forward pass:** Calcular predicciones $\hat{y} = X \cdot w + b$
+2. **Cálculo de pérdida:** $L = \text{MSE}(y, \hat{y})$
+3. **Cálculo de gradientes:** $\nabla_w L = \frac{\partial L}{\partial w}$ y $\nabla_b L = \frac{\partial L}{\partial b}$
+4. **Actualización de parámetros:** $w \leftarrow w - \alpha \cdot \nabla_w L$ y $b \leftarrow b - \alpha \cdot \nabla_b L$
+
+donde $\alpha$ es el **learning rate** (tasa de aprendizaje). La clave está en el signo negativo: nos movemos en la dirección **opuesta** al gradiente, que es la dirección de mayor descenso.
+
+**¿Cómo lo hacemos?** Para regresión lineal con MSE, los gradientes tienen forma cerrada: $\frac{\partial L}{\partial w} = \frac{2}{n} X^T (\hat{y} - y)$ y $\frac{\partial L}{\partial b} = \frac{2}{n} \sum(\hat{y} - y)$. Usamos multiplicación matricial (`@`) para eficiencia.
+
+**¿Qué resultados debemos esperar?** La pérdida debe disminuir monótonamente con cada época (para un learning rate apropiado). Al imprimir cada 10 épocas, veremos cómo el modelo converge gradualmente hacia la solución óptima.
 
 ```python
 def gradient_descent(X, y, learning_rate=0.01, epochs=100):
@@ -220,6 +337,21 @@ def gradient_descent(X, y, learning_rate=0.01, epochs=100):
 
 ### 3.2 Efecto del Learning Rate
 
+**¿Qué hacemos?** Comparamos visualmente el efecto de diferentes valores de learning rate sobre la curva de convergencia del entrenamiento.
+
+**¿Por qué lo hacemos?** El learning rate $\alpha$ es el hiperparámetro más crítico en la optimización. Governa la dinámica de convergencia:
+
+- **$\alpha$ muy pequeño** (ej. 0.0001): convergencia lenta, requiere muchas épocas, puede quedarse atascado en mínimos locales.
+- **$\alpha$ óptimo** (ej. 0.01): convergencia estable y rápida hacia el mínimo global.
+- **$\alpha$ grande** (ej. 0.5): oscilaciones alrededor del mínimo; el algoritmo "salta" de un lado al otro sin converger.
+- **$\alpha$ muy grande** (ej. 1.0+): divergencia; la pérdida **aumenta** en lugar de disminuir, el entrenamiento falla completamente.
+
+Esta propiedad se relaciona con el radio espectral de la matriz hessiana de la función de pérdida: existe una tasa de aprendizaje máxima teórica más allá de la cual el gradiente descent diverge.
+
+**¿Cómo lo hacemos?** Entrenamos el mismo modelo con los mismos datos usando cuatro valores de learning rate diferentes, y graficamos todas las curvas de pérdida en la misma figura para comparación directa.
+
+**¿Qué resultados debemos esperar?** Veremos cuatro comportamientos claramente distintos: convergencia lenta, convergencia óptima, oscilaciones y divergencia. La gráfica resultante es una de las visualizaciones más instructivas en el aprendizaje de deep learning.
+
 ```python
 def comparar_learning_rates(X, y):
     lrs = [0.001, 0.01, 0.1, 1.0]
@@ -239,6 +371,22 @@ def comparar_learning_rates(X, y):
 ```
 
 ### 3.3 Variantes de Gradient Descent
+
+**¿Qué hacemos?** Implementamos las tres variantes principales del algoritmo de Gradient Descent: Batch GD, Stochastic GD (SGD) y Mini-Batch GD.
+
+**¿Por qué lo hacemos?** La diferencia fundamental entre las variantes radica en **cuántos datos** se usan para calcular el gradiente en cada actualización. Esto crea un trade-off entre precisión del gradiente y velocidad de actualización:
+
+| Variante | Datos por update | Gradiente | Velocidad | Uso de memoria | Convergencia |
+|----------|-----------------|-----------|-----------|----------------|--------------|
+| **Batch GD** | Todo el dataset | Exacto | Lenta | Alta | Suave, estable |
+| **SGD** | 1 muestra | Ruidoso | Muy rápida | Mínima | Ruidosa, puede escapar mínimos locales |
+| **Mini-Batch GD** | $k$ muestras ($k$=32-256) | Aproximado | Balanceada | Moderada | **Estándar en práctica** |
+
+Mini-Batch GD combina lo mejor de ambos mundos: es lo suficientemente rápido (múltiples actualizaciones por época) y lo suficientemente preciso (el gradiente promediado sobre un batch es una buena estimación del gradiente real).
+
+**¿Cómo lo hacemos?** Para SGD procesamos cada muestra individualmente. Para Mini-Batch, mezclamos aleatoriamente los datos en cada época (`np.random.permutation`) y procesamos en chunks de tamaño `batch_size`. El shuffle es crucial para evitar que el modelo "memorice" el orden de los datos.
+
+**¿Qué resultados debemos esperar?** Con los mismos datos y épocas, los tres métodos deberían llegar a soluciones similares. Sin embargo, SGD tendrá una curva de pérdida ruidosa (zigzagueante), mientras que Batch GD tendrá una curva perfectamente suave pero más lenta por época.
 
 ```python
 # Batch Gradient Descent (ya implementado arriba)
@@ -292,9 +440,29 @@ def mini_batch_gd(X, y, batch_size=32, learning_rate=0.01, epochs=100):
 2. Comparar batch, SGD, mini-batch
 3. Encontrar learning rate óptimo
 
+---
+
 ## 🔬 Parte 4: Overfitting y Regularización (40 min)
 
 ### 4.1 Demostración de Overfitting
+
+**¿Qué hacemos?** Demostramos el fenómeno de overfitting ajustando modelos polinomiales de diferente complejidad a un conjunto de datos pequeño, observando cómo la brecha entre error de entrenamiento y validación crece con la complejidad del modelo.
+
+**¿Por qué lo hacemos?** Overfitting es el problema más fundamental y frecuente en machine learning. Surge del **trade-off sesgo-varianza** (*bias-variance tradeoff*):
+
+- **Underfitting (alto sesgo):** El modelo es demasiado simple para capturar los patrones reales. Alto error tanto en entrenamiento como en validación.
+- **Overfitting (alta varianza):** El modelo es demasiado complejo y "memoriza" los datos de entrenamiento, incluyendo el ruido. Error muy bajo en entrenamiento pero muy alto en validación.
+- **Balance óptimo:** El modelo captura los patrones reales sin memorizar el ruido. Ambos errores son bajos y similares.
+
+Matemáticamente, el error esperado de un modelo puede descomponerse como:
+
+$$\text{Error} = \text{Sesgo}^2 + \text{Varianza} + \text{Ruido irreducible}$$
+
+Aumentar la complejidad del modelo reduce el sesgo pero aumenta la varianza. El objetivo es encontrar la complejidad que minimiza la suma total.
+
+**¿Cómo lo hacemos?** Usamos regresión polinomial con grados 1 (lineal), 3 (cúbico) y 10 (alto grado). Para datos generados con una relación lineal más ruido gaussiano, el modelo de grado 10 tendrá suficiente capacidad para "memorizar" los 15 puntos de entrenamiento perfectamente, pero fallará en los 5 puntos de validación.
+
+**¿Qué resultados debemos esperar?** Para grado 1: errores similares en train y val (underfitting moderado). Para grado 3: ambos errores bajos (modelo adecuado). Para grado 10: error de entrenamiento muy bajo pero error de validación muy alto (overfitting severo). Esta divergencia es la "señal de alarma" del overfitting.
 
 ```python
 def simular_overfitting():
@@ -323,6 +491,24 @@ def simular_overfitting():
 
 ### 4.2 L2 Regularization
 
+**¿Qué hacemos?** Implementamos la regularización L2 (también llamada *Ridge* o *weight decay*), añadiendo un término de penalización a la función de pérdida que desincentiva pesos grandes.
+
+**¿Por qué lo hacemos?** La regularización L2 es la técnica más clásica para combatir el overfitting. La intuición es elegante: pesos grandes indican que el modelo depende excesivamente de características específicas del dataset de entrenamiento (incluyendo el ruido). Al penalizar los pesos grandes, forzamos al modelo a distribuir la "responsabilidad" entre más características, generalizando mejor.
+
+La función de pérdida regularizada es:
+
+$$L_{\text{reg}}(w) = L(w) + \lambda \|w\|_2^2 = L(w) + \lambda \sum_{j} w_j^2$$
+
+donde $\lambda$ (lambda) es el **coeficiente de regularización** que controla el balance entre ajustar los datos y mantener pesos pequeños. El gradiente de la pérdida regularizada es:
+
+$$\frac{\partial L_{\text{reg}}}{\partial w} = \frac{\partial L}{\partial w} + 2\lambda w$$
+
+El término $2\lambda w$ actúa como una "fuerza restauradora" que empuja continuamente los pesos hacia cero en cada actualización: $w \leftarrow w(1 - 2\alpha\lambda) - \alpha \frac{\partial L}{\partial w}$. Por eso también se llama *weight decay* (decaimiento de pesos).
+
+**¿Cómo lo hacemos?** Añadimos `lambda_reg * np.sum(w**2)` a la pérdida calculada y `2 * lambda_reg * w` al gradiente de los pesos. Nota importante: el sesgo $b$ generalmente **no** se regulariza, ya que no contribuye al overfitting de la misma manera.
+
+**¿Qué resultados debemos esperar?** Con regularización, el modelo de alto grado polinomial debería producir pesos más pequeños y una brecha train/val reducida. Con $\lambda$ demasiado grande, el modelo underfit (ignora los datos). El valor óptimo de $\lambda$ se encuentra mediante validación cruzada.
+
 ```python
 def gradient_descent_l2(X, y, lambda_reg=0.01, learning_rate=0.01, epochs=100):
     w = np.zeros(X.shape[1])
@@ -345,6 +531,21 @@ def gradient_descent_l2(X, y, lambda_reg=0.01, learning_rate=0.01, epochs=100):
 ```
 
 ### 4.3 Early Stopping
+
+**¿Qué hacemos?** Implementamos el algoritmo de Early Stopping (parada temprana), una técnica de regularización implícita que detiene el entrenamiento cuando el rendimiento en el conjunto de validación deja de mejorar.
+
+**¿Por qué lo hacemos?** A diferencia de L2 que modifica la función de pérdida, Early Stopping es una forma de regularización "gratis": no requiere cambiar el modelo ni añadir hiperparámetros de regularización. La idea es simple pero poderosa: durante el entrenamiento, la pérdida de entrenamiento disminuye monotónicamente, pero la pérdida de validación típicamente tiene forma de "U" (primero baja, luego sube cuando empieza el overfitting). Early Stopping detiene el entrenamiento en el "valle" de esa U.
+
+El mecanismo de **paciencia** (*patience*) es crucial: no detenemos el entrenamiento ante la primera época en que la validación no mejora (podría ser una fluctuación temporal), sino solo si no mejora durante $p$ épocas consecutivas. Esto hace el algoritmo más robusto a oscilaciones en la pérdida de validación. El proceso:
+
+1. Monitorear la pérdida de validación en cada época
+2. Si mejora → guardar los pesos actuales como "mejor modelo" y resetear contador
+3. Si no mejora → incrementar contador de paciencia
+4. Si contador ≥ paciencia → detener y restaurar los mejores pesos
+
+**¿Cómo lo hacemos?** Guardamos copias de los mejores pesos (`best_w`, `best_b`) y un contador de paciencia. Al final del entrenamiento (ya sea por paciencia o por completar todas las épocas), devolvemos los mejores pesos encontrados, no los últimos.
+
+**¿Qué resultados debemos esperar?** El entrenamiento se detendrá antes de las 1000 épocas configuradas. El mensaje "Early stopping en epoch X" indica cuándo se activó. Los pesos devueltos corresponden al mejor modelo en validación, no al modelo final sobreajustado.
 
 ```python
 def train_with_early_stopping(X_train, y_train, X_val, y_val, patience=10):
@@ -387,24 +588,148 @@ def train_with_early_stopping(X_train, y_train, X_val, y_val, patience=10):
 2. Aplicar L2 regularization
 3. Implementar early stopping
 
+---
+
 ## 📊 Análisis Final de Rendimiento
+
+### Por qué el Análisis de Rendimiento es Fundamental
+
+**¿Por qué analizamos el rendimiento de nuestras implementaciones?** En el contexto de deep learning, la eficiencia computacional no es un lujo sino una necesidad. Las redes neuronales reales se entrenan con millones de parámetros y millones de ejemplos; una implementación 10 veces más lenta puede significar días de entrenamiento adicionales. Comprender el rendimiento de nuestras implementaciones nos permite:
+
+- **Identificar cuellos de botella:** Saber qué parte del código consume más tiempo permite optimizarla prioritariamente.
+- **Escalar adecuadamente:** Entender cómo el tiempo de ejecución crece con el tamaño de los datos (complejidad algorítmica).
+- **Tomar decisiones informadas:** Elegir entre claridad de código y eficiencia computacional según el contexto.
+- **Prepararse para frameworks:** NumPy vectorizado se asemeja al comportamiento de TensorFlow/PyTorch en CPU; entender estos patrones de rendimiento facilita la transición.
+
+El análisis de rendimiento también revela la importancia de la **vectorización**: reemplazar loops de Python con operaciones matriciales de NumPy puede producir aceleraciones de 100x o más, ya que NumPy delega las operaciones a rutinas optimizadas en C/Fortran (BLAS/LAPACK).
 
 ### Comparación de Implementaciones
 
-En esta sección compararás diferentes enfoques de implementación para entender las ventajas de cada uno.
+**¿Qué métricas comparamos?**
+- **Tiempo de forward pass:** Cuánto tarda calcular la pérdida dado un conjunto de predicciones
+- **Escalabilidad:** Cómo varía el tiempo con el número de muestras ($n$) y características ($d$)
+- **Eficiencia de gradient descent:** Tiempo por época para batch vs. mini-batch vs. SGD
 
-**Criterios de comparación:**
-- Velocidad de ejecución
-- Uso de memoria
-- Claridad del código
-- Mantenibilidad
+```python
+import time
+import numpy as np
 
-### Métricas de Desempeño
+def benchmark_loss_functions(n_samples=10000):
+    """
+    Mide y compara el tiempo de ejecución de cada función de pérdida
+    para un conjunto de datos de tamaño n_samples.
+    """
+    np.random.seed(42)
+    y_true = np.random.rand(n_samples)
+    y_pred = np.random.rand(n_samples)
 
-Mide y compara:
-- Tiempo de forward pass
-- Escalabilidad con tamaño de datos
-- Eficiencia computacional
+    funciones = {
+        'MSE': lambda: mse(y_true, y_pred),
+        'MAE': lambda: mae(y_true, y_pred),
+        'BCE': lambda: binary_cross_entropy(y_true, y_pred),
+    }
+
+    print(f"{'Función':<20} {'Tiempo (ms)':>15} {'Resultado':>15}")
+    print("-" * 52)
+
+    for nombre, fn in funciones.items():
+        # Warm-up para evitar efectos de caché fría
+        fn()
+        # Medición con múltiples repeticiones para mayor precisión
+        repeticiones = 100
+        inicio = time.perf_counter()
+        for _ in range(repeticiones):
+            resultado = fn()
+        fin = time.perf_counter()
+        tiempo_ms = (fin - inicio) / repeticiones * 1000
+        print(f"{nombre:<20} {tiempo_ms:>14.4f}ms {resultado:>15.6f}")
+
+
+def benchmark_gradient_descent(n_samples=1000, n_features=10, epochs=50):
+    """
+    Compara el tiempo por época de las tres variantes de gradient descent.
+    """
+    np.random.seed(42)
+    X = np.random.randn(n_samples, n_features)
+    y = np.random.randn(n_samples)
+
+    variantes = {
+        'Batch GD':      lambda: gradient_descent(X, y, epochs=epochs),
+        'Mini-Batch GD': lambda: mini_batch_gd(X, y, batch_size=64, epochs=epochs),
+        'SGD':           lambda: sgd(X, y, epochs=epochs),
+    }
+
+    print(f"\n{'Variante':<20} {'Tiempo total (s)':>18} {'Tiempo/época (ms)':>20}")
+    print("-" * 60)
+
+    for nombre, fn in variantes.items():
+        inicio = time.perf_counter()
+        fn()
+        fin = time.perf_counter()
+        tiempo_total = fin - inicio
+        tiempo_por_epoca_ms = (tiempo_total / epochs) * 1000
+        print(f"{nombre:<20} {tiempo_total:>17.4f}s {tiempo_por_epoca_ms:>19.2f}ms")
+
+
+def analizar_escalabilidad():
+    """
+    Analiza cómo escala el tiempo de MSE con el tamaño del dataset.
+    """
+    tamanios = [100, 1_000, 10_000, 100_000, 1_000_000]
+    tiempos = []
+
+    print(f"\n{'N muestras':<15} {'Tiempo MSE (ms)':>18}")
+    print("-" * 35)
+
+    for n in tamanios:
+        y_true = np.random.rand(n)
+        y_pred = np.random.rand(n)
+        inicio = time.perf_counter()
+        for _ in range(10):
+            mse(y_true, y_pred)
+        fin = time.perf_counter()
+        t_ms = (fin - inicio) / 10 * 1000
+        tiempos.append(t_ms)
+        print(f"{n:<15,} {t_ms:>17.4f}ms")
+
+    return tamanios, tiempos
+
+
+# Ejecutar benchmarks
+print("=" * 52)
+print("BENCHMARK: FUNCIONES DE PÉRDIDA")
+print("=" * 52)
+benchmark_loss_functions()
+
+print("\n" + "=" * 60)
+print("BENCHMARK: VARIANTES DE GRADIENT DESCENT")
+print("=" * 60)
+benchmark_gradient_descent()
+
+print("\n" + "=" * 35)
+print("ESCALABILIDAD DE MSE")
+print("=" * 35)
+analizar_escalabilidad()
+```
+
+**¿Qué resultados debemos esperar?**
+
+- **Funciones de pérdida:** MSE y MAE deberían ser muy rápidas (~0.1-1 ms para 10k muestras). BCE será ligeramente más lenta por el cálculo de logaritmos.
+- **Variantes de GD:** Batch GD tendrá el tiempo por época más predecible. SGD será el más lento en tiempo total por los loops de Python. Mini-Batch GD será el más eficiente.
+- **Escalabilidad:** MSE debería escalar aproximadamente de forma lineal con el número de muestras (complejidad O(n)), lo que confirma la eficiencia de la vectorización de NumPy.
+
+### Criterios de Comparación
+
+Al evaluar implementaciones, considera estos cuatro ejes:
+
+| Criterio | ¿Qué medir? | ¿Cuándo priorizar? |
+|----------|-------------|-------------------|
+| **Velocidad** | `time.perf_counter()`, repeticiones | Producción, datasets grandes |
+| **Memoria** | Evitar copias innecesarias, in-place ops | Datasets que no caben en RAM |
+| **Claridad** | ¿Se entiende qué hace el código? | Educación, prototipado |
+| **Mantenibilidad** | ¿Es fácil modificar/extender? | Proyectos a largo plazo |
+
+---
 
 ## 🎯 EJERCICIOS PROPUESTOS
 
@@ -444,6 +769,8 @@ Sistema que:
 - Detecta divergencia train/val
 - Recomienda λ de regularización
 - Aplica early stopping automáticamente
+
+---
 
 ## 📝 Entregables
 
@@ -487,6 +814,8 @@ Lab04_Entrega/
 └── README.md
 ```
 
+---
+
 ## 🎯 Criterios de Evaluación (CDIO)
 
 ### Concebir (25%)
@@ -519,7 +848,9 @@ Lab04_Entrega/
 - Visualizaciones informativas
 - Conclusiones fundamentadas
 
-### Rúbrica Detallada
+---
+
+## 📊 Rúbrica de Evaluación
 
 | Criterio | Excelente (90-100%) | Bueno (75-89%) | Satisfactorio (60-74%) | Insuficiente (<60%) |
 |----------|-------------------|---------------|---------------------|-------------------|
@@ -527,6 +858,8 @@ Lab04_Entrega/
 | **Experimentación** | Análisis profundo | Completo | Básico | Incompleto |
 | **Documentación** | Excelente | Buena | Básica | Pobre |
 | **Comprensión** | Dominio total | Buen entendimiento | Comprensión básica | Comprensión limitada |
+
+---
 
 ## 📚 Referencias Adicionales
 
@@ -555,6 +888,8 @@ Lab04_Entrega/
 - NumPy: https://numpy.org/doc/
 - Matplotlib: https://matplotlib.org/
 - Python: https://docs.python.org/3/
+
+---
 
 ## 🎓 Notas Finales
 
