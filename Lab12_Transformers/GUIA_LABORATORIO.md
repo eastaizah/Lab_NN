@@ -260,7 +260,7 @@ print(mascara)
 ### Preguntas de Reflexión
 **Pregunta 1.1 (Concebir)**: ¿Por qué dividimos los scores por √d_k? ¿Qué ocurriría si no lo hiciéramos cuando d_k es grande (por ejemplo, d_k=512)?
 **Pregunta 1.2 (Diseñar)**: ¿Cuál es la diferencia fundamental entre Self-Attention y la atención de Bahdanau utilizada en los seq2seq con RNN?
-**Pregunta 1.3 (Implementar)**: La complejidad computacional de Self-Attention es O(n²·d). Para una secuencia de 1000 tokens con d_model=512, ¿cuántas operaciones de punto flotante implica solo el cálculo de Q·Kᵀ?
+**Pregunta 1.3 (Implementar)**: La complejidad computacional de Self-Attention es O(n²·d). Para una secuencia de 1000 tokens con d_model=512, ¿cuántas operaciones de punto flotante implica solo el cálculo de Q·K^T?
 **Pregunta 1.4 (Operar)**: Si tienes una frase ambigua como "Vi a la estudiante con el telescopio", ¿cómo esperarías que se distribuyan los pesos de atención alrededor de la palabra "con"?
 ## 🔬 Parte 2: Multi-Head Attention (40 min)
 ### 2.1 Motivación: Múltiples Perspectivas
