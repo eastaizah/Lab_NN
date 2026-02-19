@@ -89,7 +89,7 @@ Objetivo: L → 0 (minimizar pérdida)
 
 1. **Sobre la elección de la función de pérdida:** Si tienes un problema de predicción de precios de casas donde algunos valores son extremadamente altos (mansiones), ¿qué función de pérdida crees que sería más adecuada, MSE o MAE? ¿Por qué los errores grandes deberían o no deberían penalizarse más?
 
-2. **Sobre la interpretación probabilística:** En clasificación binaria, la cross-entropy utiliza logaritmos. ¿Qué crees que sucede con la pérdida cuando el modelo predice una probabilidad de 0.99 para la clase correcta? ¿Y cuando predice 0.01? ¿Por qué el logaritmo captura mejor esta asimetría que el error cuadrático?
+2. **Sobre la interpretación probabilística:** En clasificación binaria, la cross-entropy utiliza logaritmos. ¿Qué crees que sucede con la pérdida cuando el modelo predice una probabilidad de 0.99 para la clase correcta? ¿Y cuando predice 0.01? ¿Por qué el logaritmo captura mejor esta diferencia de magnitud entre predicciones confiadas y erróneas, en comparación con el error cuadrático?
 
 3. **Sobre el learning rate:** Imagina que estás bajando una montaña en la oscuridad. El learning rate sería el tamaño de cada paso. ¿Qué pasaría si tus pasos fueran demasiado grandes? ¿Y demasiado pequeños? ¿Existe un tamaño de paso "perfecto" universal?
 
@@ -346,7 +346,7 @@ def gradient_descent(X, y, learning_rate=0.01, epochs=100):
 - **$\alpha$ grande** (ej. 0.5): oscilaciones alrededor del mínimo; el algoritmo "salta" de un lado al otro sin converger.
 - **$\alpha$ muy grande** (ej. 1.0+): divergencia; la pérdida **aumenta** en lugar de disminuir, el entrenamiento falla completamente.
 
-Esta propiedad se relaciona con el radio espectral de la matriz hessiana de la función de pérdida: existe una tasa de aprendizaje máxima teórica más allá de la cual el gradiente descent diverge.
+De forma intuitiva, existe una tasa de aprendizaje máxima más allá de la cual los pasos son tan grandes que el algoritmo "sobrepasa" el mínimo y diverge. Para los interesados en el análisis matemático: este límite está determinado por la curvatura de la función de pérdida (su segunda derivada), pero para este lab basta con entender el comportamiento empírico.
 
 **¿Cómo lo hacemos?** Entrenamos el mismo modelo con los mismos datos usando cuatro valores de learning rate diferentes, y graficamos todas las curvas de pérdida en la misma figura para comparación directa.
 
@@ -633,7 +633,7 @@ def benchmark_loss_functions(n_samples=10000):
     print("-" * 52)
 
     for nombre, fn in funciones.items():
-        # Warm-up para evitar efectos de caché fría
+        # Warm-up para evitar efectos de cache fría
         fn()
         # Medición con múltiples repeticiones para mayor precisión
         repeticiones = 100
@@ -648,6 +648,8 @@ def benchmark_loss_functions(n_samples=10000):
 def benchmark_gradient_descent(n_samples=1000, n_features=10, epochs=50):
     """
     Compara el tiempo por época de las tres variantes de gradient descent.
+    Requiere las funciones gradient_descent, mini_batch_gd y sgd
+    definidas en las secciones 3.1 y 3.3 de este laboratorio.
     """
     np.random.seed(42)
     X = np.random.randn(n_samples, n_features)
