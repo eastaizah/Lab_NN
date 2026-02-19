@@ -685,6 +685,44 @@ print("→ Los LSTM están diseñados para resolverla.\n")
 
 ### 2.2 Arquitectura LSTM: Las Tres Puertas
 
+La **Long Short-Term Memory (LSTM)** fue propuesta por Hochreiter y Schmidhuber en 1997 precisamente para solucionar el problema del gradiente desvaneciente. Su innovación central es el **estado de celda** $C_t$, que actúa como una "cinta transportadora" de información que atraviesa toda la secuencia con modificaciones mínimas y controladas. A diferencia de la RNN estándar, donde el gradiente se multiplica por $W_{hh}$ en cada paso y se atenúa exponencialmente, el gradiente en la LSTM puede fluir hacia atrás a través de $C_t$ casi sin atenuación gracias al mecanismo de puertas.
+
+#### Las tres puertas y el flujo de información
+
+Cada puerta aplica una función sigmoide $\sigma(\cdot)$ que produce valores en $[0, 1]$, actuando como un **interruptor suave**: un valor cercano a 0 "cierra" el paso de información y un valor cercano a 1 lo "abre" completamente. Esto permite al modelo aprender, de forma diferenciable, qué información conservar y cuál descartar.
+
+**1. Puerta de olvido** $f_t$ — *¿Qué información del pasado ya no es relevante?*
+
+$$f_t = \sigma(W_f \cdot [h_{t-1},\, x_t] + b_f)$$
+
+Produce un vector en $(0,1)^H$. Cada componente indica cuánto del estado de celda anterior $C_{t-1}$ se conserva: $f_t \approx 0$ descarta completamente esa dimensión; $f_t \approx 1$ la preserva intacta.
+
+**2. Puerta de entrada** $i_t$ y candidato $\tilde{C}_t$ — *¿Qué información nueva merece almacenarse?*
+
+$$i_t = \sigma(W_i \cdot [h_{t-1},\, x_t] + b_i)$$
+$$\tilde{C}_t = \tanh(W_C \cdot [h_{t-1},\, x_t] + b_C)$$
+
+$\tilde{C}_t$ propone nuevos valores candidatos (en $[-1,1]^H$) y $i_t$ selecciona cuáles de ellos se escriben realmente en el estado de celda. La actualización del estado de celda combina ambas puertas:
+
+$$C_t = f_t \odot C_{t-1} + i_t \odot \tilde{C}_t$$
+
+Esta ecuación es la clave del éxito de la LSTM: el gradiente $\partial C_t / \partial C_{t-1} = f_t$ es multiplicativo pero **aprendido**, y cuando $f_t \approx 1$ el gradiente fluye sin atenuación.
+
+**3. Puerta de salida** $o_t$ — *¿Qué parte del estado de celda debe emitirse como salida?*
+
+$$o_t = \sigma(W_o \cdot [h_{t-1},\, x_t] + b_o)$$
+$$h_t = o_t \odot \tanh(C_t)$$
+
+El estado oculto $h_t$ es la representación que se pasa al siguiente paso y a las capas superiores. El $\tanh$ comprime $C_t$ a $[-1,1]$ antes de filtrarlo con $o_t$, de modo que $h_t$ contiene sólo la información relevante para la salida en el instante $t$.
+
+**Resultados esperados:**
+
+Al ejecutar el código se mostrarán en consola los valores numéricos de $f_t$, $i_t$, $\tilde{C}_t$, $C_t$, $o_t$ y $h_t$ para un estado de ejemplo con `hidden_size=4`. La gráfica generada (`lstm_gates.png`) mostrará **cuatro paneles de barras** de colores:
+- 🔴 **Forget Gate** ($f_t$): valores entre 0 y 1 — indican qué dimensiones del estado anterior se conservan.
+- 🟢 **Input Gate** ($i_t$): valores entre 0 y 1 — indican qué dimensiones nuevas se escriben.
+- 🔵 **Cell State** ($C_t$): puede tomar valores positivos y negativos — es la "memoria" acumulada.
+- 🟡 **Output Gate** ($o_t$): valores entre 0 y 1 — filtran lo que se publica como $h_t$.
+
 ```python
 print("=" * 60)
 print("ARQUITECTURA LSTM: FORGET, INPUT Y OUTPUT GATES")
@@ -779,6 +817,41 @@ print("Figura guardada como 'lstm_gates.png'")
 ```
 
 ### 2.3 Celda LSTM Completa desde Cero
+
+En esta sección construimos una celda LSTM **completamente funcional desde cero** utilizando únicamente NumPy, sin ninguna biblioteca de deep learning. El objetivo es consolidar la comprensión de las ecuaciones vistas en la sección anterior y verificar que las dimensiones de los tensores son correctas antes de usar implementaciones optimizadas como las de PyTorch.
+
+#### Decisiones de diseño de la implementación
+
+La clase `CeldaLSTM` encapsula todos los parámetros y la lógica forward de la celda. Se destacan tres decisiones relevantes:
+
+1. **Concatenación $[h_{t-1},\, x_t]$**: en lugar de mantener matrices de pesos separadas para la entrada ($W_x \in \mathbb{R}^{H \times D_{in}}$) y el estado oculto ($W_h \in \mathbb{R}^{H \times H}$), se concatenan ambos vectores y se utiliza una sola matriz $W \in \mathbb{R}^{H \times (H + D_{in})}$ por puerta. Esto es algebraicamente equivalente pero más eficiente en implementación y hardware.
+
+2. **Inicialización con escala $\sqrt{1/D}$**: limita la magnitud de las pre-activaciones al inicio del entrenamiento, evitando saturación inmediata de las sigmoides y el $\tanh$.
+
+3. **Sesgo de olvido inicializado en $+1$** (Jozefowicz *et al.*, 2015): inicializar $b_f = 1$ hace que $f_t \approx \sigma(1) \approx 0.73$ al principio, es decir, la celda **recuerda por defecto**. Esto es crucial en las primeras iteraciones del entrenamiento, cuando los gradientes son ruidosos y es preferible no perder información del estado de celda.
+
+#### Las dos funciones principales
+
+- **`forward_step(x_t, h_prev, C_prev)`**: ejecuta un único paso temporal aplicando las cuatro ecuaciones de la LSTM y devuelve $(h_t, C_t, \text{cache})$. El `cache` almacena todos los valores intermedios necesarios para el backpropagation.
+
+- **`forward_sequence(X)`**: itera sobre una secuencia de longitud $T$, llamando a `forward_step` en cada instante y acumulando los históricos de $h_t$ y $C_t$. Devuelve listas con todos los estados para su posterior análisis.
+
+#### Conteo de parámetros
+
+Para una LSTM con `input_size=D` y `hidden_size=H`, cada una de las **4 puertas** tiene una matriz $W \in \mathbb{R}^{H \times (D+H)}$ y un sesgo $b \in \mathbb{R}^H$:
+
+$$\text{Parámetros}_{\text{LSTM}} = 4 \times \bigl((D + H) \times H + H\bigr)$$
+
+Para los valores del código (`input_size=5`, `hidden_size=8`): $4 \times ((5+8) \times 8 + 8) = 4 \times (104 + 8) = \mathbf{448}$ parámetros — exactamente **4 veces más** que una RNN estándar equivalente.
+
+**Resultados esperados:**
+
+- La línea `Parámetros totales: 448` confirma el conteo teórico para `input_size=5`, `hidden_size=8`.
+- Para los primeros 4 pasos temporales se imprimirán los valores de $f_t$, $i_t$, $o_t$, $C_t$ y $h_t$. Se puede observar que:
+  - Los valores de $f_t$ son mayoritariamente > 0.5 (efecto del sesgo de olvido $b_f = 1$).
+  - $C_t$ crece en magnitud conforme la celda acumula información a lo largo de los pasos.
+  - $h_t$ permanece en $(-1, 1)$ gracias al $\tanh$ aplicado sobre $C_t$.
+- La comparación final mostrará que la LSTM tiene aproximadamente **4× más parámetros** que una RNN equivalente con los mismos `input_size`, `hidden_size` y `output_size`.
 
 ```python
 print("\n--- Implementación completa de LSTM desde cero ---")
@@ -933,6 +1006,45 @@ print(f"Factor LSTM/RNN: {lstm_params/rnn_params:.2f}x más parámetros")
 ## 🔬 Parte 3: Aplicaciones con PyTorch (60 min)
 
 ### 3.1 LSTM para Clasificación de Texto (Análisis de Sentimiento)
+
+En esta sección pasamos de NumPy a **PyTorch** y construimos un pipeline completo de clasificación de texto con LSTM. El análisis de sentimiento es una tarea **Many-to-One**: la LSTM procesa una secuencia de tokens y produce una única etiqueta de clase al final de la secuencia.
+
+#### Pipeline de clasificación de texto
+
+El flujo de datos sigue estos pasos:
+
+```
+Texto → Tokenización → Índices enteros → Capa Embedding → LSTM → Dropout → Clasificador lineal → Clase
+```
+
+1. **Tokenización**: cada palabra (o subpalabra) se convierte en un índice entero dentro de un vocabulario de tamaño `VOCAB_SIZE`.
+2. **Capa Embedding** (`nn.Embedding`): transforma cada índice en un vector denso de `EMBED_DIM` dimensiones. A diferencia de la codificación *one-hot* (vectores dispersos de dimensión `VOCAB_SIZE`), los *embeddings* son representaciones **densas y aprendibles** que capturan relaciones semánticas entre palabras (p. ej., palabras con significado similar tendrán vectores cercanos). Los parámetros de la capa Embedding son `VOCAB_SIZE × EMBED_DIM`.
+3. **LSTM** (`nn.LSTM`): procesa la secuencia de embeddings paso a paso, produciendo un hidden state $h_t$ en cada instante. Para clasificación usamos **únicamente el último hidden state** $h_T$ (Many-to-One), que resume toda la secuencia.
+4. **Dropout**: regularización estocástica que desactiva aleatoriamente neuronas con probabilidad `p` durante el entrenamiento, reduciendo el sobreajuste.
+5. **Capa lineal**: proyecta el último hidden state desde `HIDDEN_SIZE` dimensiones a `NUM_CLASSES` logits, sobre los que se aplica `CrossEntropyLoss`.
+
+#### Dataset sintético
+
+La clase `SentimentDataset` genera datos sintéticos donde la posición en el vocabulario codifica el sentimiento: los tokens en la mitad superior del vocabulario (`[VOCAB_SIZE//2, VOCAB_SIZE)`) corresponden a la clase **positiva (1)**, y los de la mitad inferior (`[0, VOCAB_SIZE//2)`) a la clase **negativa (0)**. Esto crea una señal clara y aprendible, ideal para validar que la arquitectura funciona correctamente antes de escalarla a datos reales.
+
+#### Hiperparámetros y su rol
+
+| Hiperparámetro | Valor | Función |
+|---|---|---|
+| `VOCAB_SIZE` | 1000 | Tamaño del vocabulario; define la dimensión de la tabla de embeddings |
+| `EMBED_DIM` | 64 | Dimensión del espacio de representación de cada token |
+| `HIDDEN_SIZE` | 128 | Capacidad de memoria de la LSTM; más alto ≈ más expresividad |
+| `NUM_CLASSES` | 2 | Positivo / Negativo |
+| `MAX_LEN` | 30 | Longitud fija de cada secuencia de entrada |
+| `BATCH_SIZE` | 32 | Número de ejemplos procesados en paralelo por iteración |
+| `NUM_EPOCHS` | 10 | Número de pasadas completas sobre el conjunto de entrenamiento |
+
+**Resultados esperados:**
+
+- El entrenamiento de 10 épocas sobre 800 muestras de entrenamiento y 200 de validación es rápido (< 30 segundos en CPU).
+- Dado que el dataset sintético es altamente separable, la precisión en validación debe alcanzar **entre el 92 % y el 96 %** a partir de la época 5-7, y estabilizarse ahí.
+- La pérdida de entrenamiento debe descender de forma monotónica; si se observan oscilaciones grandes, podría indicar una tasa de aprendizaje demasiado alta.
+- Se imprimirá la accuracy final en el conjunto de test, que debe estar en el mismo rango que la validación, confirmando que el modelo generaliza y no sobreajusta.
 
 ```python
 import torch
