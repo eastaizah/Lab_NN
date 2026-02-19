@@ -260,6 +260,35 @@ for t, (h_t, y_t) in enumerate(zip(H, Y)):
 
 ### 1.2 Forward Pass en Secuencias — Visualización
 
+Para comprender intuitivamente cómo una RNN procesa una secuencia, es fundamental **visualizar la red "desenrollada"** (*unfolded*) en el tiempo. Al desenrollar la RNN, lo que conceptualmente es un único módulo con un bucle recurrente se transforma en una cadena de copias idénticas —una por cada paso temporal— donde cada copia comparte exactamente los mismos pesos.
+
+**¿Qué muestra el diagrama?**
+
+| Elemento | Color | Descripción |
+|---|---|---|
+| **Celda RNN** | Verde | Módulo con pesos compartidos `W_xh`, `W_hh`, `b_h` |
+| **Entrada** `x_t` | Azul | Vector de entrada en el instante `t` |
+| **Salida** `y_t` | Naranja | Predicción producida en el instante `t` |
+| **Estado oculto** `h_t` | Gris | Memoria que fluye de izquierda a derecha entre celdas |
+
+La flecha horizontal `h_t` que conecta cada celda con la siguiente es el corazón de la arquitectura recurrente: **es el mecanismo mediante el cual la información del pasado se transmite al futuro**, permitiendo que la celda del paso `t+1` "recuerde" lo que ocurrió antes.
+
+**Dos tipos fundamentales de tarea secuencial:**
+
+- **Many-to-One** *(muchos a uno)*: la red consume toda la secuencia pero produce **una única salida** al final (por ejemplo, análisis de sentimiento: leer una reseña completa y clasificarla como positiva o negativa). Sólo se utiliza `H[-1]`, el estado oculto del último paso.
+- **Many-to-Many** *(muchos a muchos)*: la red produce **una salida en cada paso temporal** (por ejemplo, etiquetado morfosintáctico *Part-of-Speech*: asignar una etiqueta a cada palabra de una frase). Se utilizan todas las salidas `Y[0], Y[1], …, Y[T-1]`.
+
+Al ejecutar el código observa cómo:
+- Las **celdas RNN son idénticas** (mismos pesos), lo que hace que el número de parámetros sea independiente de la longitud de la secuencia.
+- El **estado oculto crece** de izquierda a derecha, acumulando contexto progresivamente.
+- En *Many-to-One* solo la última salida lleva información de toda la secuencia; en *Many-to-Many* cada salida lleva información hasta ese instante.
+
+**Resultados esperados:**
+
+- Se generará y guardará la figura `rnn_desenvuelta.png` con el diagrama de la RNN de 4 pasos temporales.
+- En la consola aparecerá la confirmación `"Figura guardada como 'rnn_desenvuelta.png'"`.
+- La salida de *Many-to-One* tendrá `shape = (output_size, 1)` (un único vector); la salida de *Many-to-Many* será una lista de `seq_len` vectores del mismo shape, mostrando que la red produjo una predicción por cada elemento de la secuencia.
+
 ```python
 print("\n--- Visualización del flujo de información en RNN ---")
 
@@ -348,6 +377,40 @@ print(f"Many-to-Many (etiquetado POS): {len(y_m2m)} salidas, cada una de shape {
 ```
 
 ### 1.3 Backpropagation Through Time (BPTT)
+
+El algoritmo de retropropagación estándar (*backpropagation*) calcula gradientes en redes con una arquitectura estática de capas. Las RNN, sin embargo, procesan secuencias con un grafo computacional que **se extiende en el tiempo**: cada paso temporal `t` depende del estado anterior `h_{t-1}`. Para entrenar una RNN es necesario adaptar la retropropagación a esta estructura temporal, lo que da lugar al algoritmo **Backpropagation Through Time (BPTT)**.
+
+**¿Cómo fluyen los gradientes hacia atrás en el tiempo?**
+
+Dado que el estado oculto en cada paso se calcula como `h_t = tanh(W_xh · x_t + W_hh · h_{t-1} + b_h)`, la pérdida total `L` depende de `h_t` tanto de manera directa (a través de la salida `y_t`) como indirecta (a través de todos los pasos futuros). El gradiente del peso `W` acumula contribuciones de **todos los pasos temporales**:
+
+$$\frac{\partial L}{\partial W} = \sum_{t=1}^{T} \frac{\partial L}{\partial h_t} \cdot \frac{\partial h_t}{\partial W}$$
+
+En la práctica, el algoritmo recorre la secuencia **al revés** (de `t = T-1` hasta `t = 0`), propagando el gradiente a través de la derivada de la función `tanh`:
+
+```
+da_t = dh_t ⊙ (1 - h_t²)       ← derivada de tanh
+dh_{t-1} = W_hh.T · da_t        ← propagar hacia atrás en el tiempo
+```
+
+**¿Por qué se incluye *gradient clipping*?**
+
+En secuencias largas, la multiplicación repetida por `W_hh` en cada paso puede hacer que la norma del gradiente crezca exponencialmente (*gradient explosion*). La técnica de *gradient clipping* resuelve esto: si la norma total del gradiente supera un umbral `max_norm`, **reescala todos los gradientes proporcionalmente** para que su norma total sea exactamente `max_norm`. Esto estabiliza el entrenamiento sin alterar la dirección del gradiente.
+
+**¿Qué observarás durante el entrenamiento?**
+
+- La pérdida (*cross-entropy*) comenzará aproximadamente en **~0.69** (equivalente a predicción aleatoria con 2 clases: `log(2) ≈ 0.693`).
+- A medida que el optimizador SGD ajusta los pesos con BPTT, la pérdida descenderá de forma continua.
+- Después de **200 épocas**, la pérdida debería acercarse a **0.0**, indicando que la red ha memorizado la muestra de entrenamiento y asigna prácticamente toda la probabilidad a la clase correcta.
+
+> ⚠️ **Sin *gradient clipping***, en secuencias largas o con pesos mal inicializados, los gradientes pueden volverse `NaN` o `Inf` en pocas iteraciones, impidiendo completamente el aprendizaje. El *clipping* es especialmente importante en RNN entrenadas con BPTT.
+
+**Resultados esperados:**
+
+- La pérdida inicial será aproximadamente **~0.69**.
+- La curva de convergencia descenderá suavemente hasta valores cercanos a **0.0** al final de las 200 épocas.
+- Se guardará la figura `bptt_convergencia.png` con la curva de entrenamiento.
+- Si se activa el *clipping*, verás líneas de la forma `[Clipping] norma=X.XXX → escalado por 0.XXXX` indicando que se normalizaron los gradientes.
 
 ```python
 print("\n--- Backpropagation Through Time (BPTT) ---")
@@ -505,6 +568,40 @@ print("Figura guardada como 'bptt_convergencia.png'")
 
 ### 2.1 Demostración del Gradiente que Desaparece
 
+El **problema del gradiente desvaneciente** (*vanishing gradient*) es la principal limitación de las RNN estándar y la razón directa por la que se inventaron las redes LSTM. Para entenderlo, analicemos qué ocurre cuando retropropagamos la señal de error a través de muchos pasos temporales.
+
+**Análisis matemático:**
+
+Al aplicar BPTT, el gradiente respecto al estado oculto `k` pasos atrás involucra el producto de `k` matrices Jacobianas:
+
+$$\frac{\partial h_t}{\partial h_{t-k}} = \prod_{i=1}^{k} \frac{\partial h_{t-i+1}}{\partial h_{t-i}} \approx W_{hh}^k$$
+
+El comportamiento de esta expresión depende completamente de la **norma espectral** de `W_hh` (su mayor valor singular `σ_1`):
+
+| Régimen | Condición | Consecuencia |
+|---|---|---|
+| **Desvaneciente** | `σ_1 < 1` *(‖W‖ < 1)* | `‖W^k‖ → 0` exponencialmente; la señal del pasado remoto es nula |
+| **Estable** | `σ_1 ≈ 1` *(‖W‖ ≈ 1)* | La norma del gradiente se mantiene constante; el aprendizaje es posible |
+| **Explosivo** | `σ_1 > 1` *(‖W‖ > 1)* | `‖W^k‖ → ∞` exponencialmente; los gradientes se vuelven `NaN` |
+
+En la práctica, los pesos se inicializan aleatoriamente y casi siempre caen en el régimen desvaneciente. Esto significa que **la RNN es incapaz de aprender dependencias que abarquen más de ~10 pasos temporales**: el gradiente que llega desde el paso `t=0` hasta el paso `t=50` es tan pequeño que el optimizador no puede ajustar los pesos con información de largo plazo.
+
+**¿Qué simulará el código?**
+
+La función `simular_flujo_gradiente` inicializa una matriz `W_hh` con tres normas espectrales diferentes (`0.5`, `1.0`, `1.5`) y calcula iterativamente `grad = grad @ W`, midiendo la norma del gradiente en cada paso. Esto reproduce fielmente el comportamiento de `W^k` sin necesidad de hacer un forward pass completo.
+
+La gráfica usará **escala logarítmica en el eje Y** para que las tres curvas sean visibles simultáneamente, ya que sus rangos de variación difieren en muchos órdenes de magnitud.
+
+**Resultados esperados:**
+
+- **Curva roja** *(escala=0.5, desvaneciente)*: la norma caerá de `1.0` a valores próximos a **`1e-15`** o menores después de 50 pasos —prácticamente cero.
+- **Curva verde** *(escala=1.0, estable)*: la norma se mantendrá relativamente constante alrededor de **`1.0`** a lo largo de todos los pasos.
+- **Curva naranja** *(escala=1.5, explosivo)*: la norma crecerá hasta valores del orden de **`1e6`** o superiores, representando una explosión de gradiente.
+- El análisis cuantitativo imprimirá el *ratio* `norma_final / norma_inicial` para cada caso, confirmando los órdenes de magnitud esperados.
+- Se guardará la figura `gradiente_desvaneciente.png`.
+
+> 💡 Este experimento explica por qué las LSTM fueron diseñadas con una **celda de memoria** y **puertas de olvido**: en lugar de multiplicar el gradiente por la misma matriz `W_hh` en cada paso, las LSTM permiten que el gradiente fluya hacia atrás casi sin atenuación a través de la *constant error carousel* (CEC).
+
 ```python
 print("=" * 60)
 print("GRADIENTE DESVANECIENTE EN RNN ESTÁNDAR")
@@ -587,6 +684,44 @@ print("→ Los LSTM están diseñados para resolverla.\n")
 ```
 
 ### 2.2 Arquitectura LSTM: Las Tres Puertas
+
+La **Long Short-Term Memory (LSTM)** fue propuesta por Hochreiter y Schmidhuber en 1997 precisamente para solucionar el problema del gradiente desvaneciente. Su innovación central es el **estado de celda** $C_t$, que actúa como una "cinta transportadora" de información que atraviesa toda la secuencia con modificaciones mínimas y controladas. A diferencia de la RNN estándar, donde el gradiente se multiplica por $W_{hh}$ en cada paso y se atenúa exponencialmente, el gradiente en la LSTM puede fluir hacia atrás a través de $C_t$ casi sin atenuación gracias al mecanismo de puertas.
+
+#### Las tres puertas y el flujo de información
+
+Cada puerta aplica una función sigmoide $\sigma(\cdot)$ que produce valores en $[0, 1]$, actuando como un **interruptor suave**: un valor cercano a 0 "cierra" el paso de información y un valor cercano a 1 lo "abre" completamente. Esto permite al modelo aprender, de forma diferenciable, qué información conservar y cuál descartar.
+
+**1. Puerta de olvido** $f_t$ — *¿Qué información del pasado ya no es relevante?*
+
+$$f_t = \sigma(W_f \cdot [h_{t-1},\, x_t] + b_f)$$
+
+Produce un vector en $(0,1)^H$. Cada componente indica cuánto del estado de celda anterior $C_{t-1}$ se conserva: $f_t \approx 0$ descarta completamente esa dimensión; $f_t \approx 1$ la preserva intacta.
+
+**2. Puerta de entrada** $i_t$ y candidato $\tilde{C}_t$ — *¿Qué información nueva merece almacenarse?*
+
+$$i_t = \sigma(W_i \cdot [h_{t-1},\, x_t] + b_i)$$
+$$\tilde{C}_t = \tanh(W_C \cdot [h_{t-1},\, x_t] + b_C)$$
+
+$\tilde{C}_t$ propone nuevos valores candidatos (en $[-1,1]^H$) y $i_t$ selecciona cuáles de ellos se escriben realmente en el estado de celda. La actualización del estado de celda combina ambas puertas:
+
+$$C_t = f_t \odot C_{t-1} + i_t \odot \tilde{C}_t$$
+
+Esta ecuación es la clave del éxito de la LSTM: el gradiente $\partial C_t / \partial C_{t-1} = f_t$ es multiplicativo pero **aprendido**, y cuando $f_t \approx 1$ el gradiente fluye sin atenuación.
+
+**3. Puerta de salida** $o_t$ — *¿Qué parte del estado de celda debe emitirse como salida?*
+
+$$o_t = \sigma(W_o \cdot [h_{t-1},\, x_t] + b_o)$$
+$$h_t = o_t \odot \tanh(C_t)$$
+
+El estado oculto $h_t$ es la representación que se pasa al siguiente paso y a las capas superiores. El $\tanh$ comprime $C_t$ a $[-1,1]$ antes de filtrarlo con $o_t$, de modo que $h_t$ contiene sólo la información relevante para la salida en el instante $t$.
+
+**Resultados esperados:**
+
+Al ejecutar el código se mostrarán en consola los valores numéricos de $f_t$, $i_t$, $\tilde{C}_t$, $C_t$, $o_t$ y $h_t$ para un estado de ejemplo con `hidden_size=4`. La gráfica generada (`lstm_gates.png`) mostrará **cuatro paneles de barras** de colores:
+- 🔴 **Forget Gate** ($f_t$): valores entre 0 y 1 — indican qué dimensiones del estado anterior se conservan.
+- 🟢 **Input Gate** ($i_t$): valores entre 0 y 1 — indican qué dimensiones nuevas se escriben.
+- 🔵 **Cell State** ($C_t$): puede tomar valores positivos y negativos — es la "memoria" acumulada.
+- 🟡 **Output Gate** ($o_t$): valores entre 0 y 1 — filtran lo que se publica como $h_t$.
 
 ```python
 print("=" * 60)
@@ -682,6 +817,41 @@ print("Figura guardada como 'lstm_gates.png'")
 ```
 
 ### 2.3 Celda LSTM Completa desde Cero
+
+En esta sección construimos una celda LSTM **completamente funcional desde cero** utilizando únicamente NumPy, sin ninguna biblioteca de deep learning. El objetivo es consolidar la comprensión de las ecuaciones vistas en la sección anterior y verificar que las dimensiones de los tensores son correctas antes de usar implementaciones optimizadas como las de PyTorch.
+
+#### Decisiones de diseño de la implementación
+
+La clase `CeldaLSTM` encapsula todos los parámetros y la lógica forward de la celda. Se destacan tres decisiones relevantes:
+
+1. **Concatenación $[h_{t-1},\, x_t]$**: en lugar de mantener matrices de pesos separadas para la entrada ($W_x \in \mathbb{R}^{H \times D_{in}}$) y el estado oculto ($W_h \in \mathbb{R}^{H \times H}$), se concatenan ambos vectores y se utiliza una sola matriz $W \in \mathbb{R}^{H \times (H + D_{in})}$ por puerta. Esto es algebraicamente equivalente pero más eficiente en implementación y hardware.
+
+2. **Inicialización con escala $\sqrt{1/D}$**: limita la magnitud de las pre-activaciones al inicio del entrenamiento, evitando saturación inmediata de las sigmoides y el $\tanh$.
+
+3. **Sesgo de olvido inicializado en $+1$** (Jozefowicz et al., 2015): inicializar $b_f = 1$ hace que $f_t \approx \sigma(1) \approx 0.73$ al principio, es decir, la celda **recuerda por defecto**. Esto es crucial en las primeras iteraciones del entrenamiento, cuando los gradientes son ruidosos y es preferible no perder información del estado de celda.
+
+#### Las dos funciones principales
+
+- **`forward_step(x_t, h_prev, C_prev)`**: ejecuta un único paso temporal aplicando las cuatro ecuaciones de la LSTM y devuelve $(h_t, C_t, \text{cache})$. El `cache` almacena todos los valores intermedios necesarios para el backpropagation.
+
+- **`forward_sequence(X)`**: itera sobre una secuencia de longitud $T$, llamando a `forward_step` en cada instante y acumulando los históricos de $h_t$ y $C_t$. Devuelve listas con todos los estados para su posterior análisis.
+
+#### Conteo de parámetros
+
+Para una LSTM con `input_size=D` y `hidden_size=H`, cada una de las **4 puertas** tiene una matriz $W \in \mathbb{R}^{H \times (D+H)}$ y un sesgo $b \in \mathbb{R}^H$:
+
+$$\text{Parámetros}_{\text{LSTM}} = 4 \times \bigl((D + H) \times H + H\bigr)$$
+
+Para los valores del código (`input_size=5`, `hidden_size=8`): $4 \times ((5+8) \times 8 + 8) = 4 \times (104 + 8) = \mathbf{448}$ parámetros — exactamente **4 veces más** que una RNN estándar equivalente.
+
+**Resultados esperados:**
+
+- La línea `Parámetros totales: 448` confirma el conteo teórico para `input_size=5`, `hidden_size=8`.
+- Para los primeros 4 pasos temporales se imprimirán los valores de $f_t$, $i_t$, $o_t$, $C_t$ y $h_t$. Se puede observar que:
+  - Los valores de $f_t$ son mayoritariamente > 0.5 (efecto del sesgo de olvido $b_f = 1$).
+  - $C_t$ crece en magnitud conforme la celda acumula información a lo largo de los pasos.
+  - $h_t$ permanece en $(-1, 1)$ gracias al $\tanh$ aplicado sobre $C_t$.
+- La comparación final mostrará que la LSTM tiene aproximadamente **4× más parámetros** que una RNN equivalente con los mismos `input_size`, `hidden_size` y `output_size`.
 
 ```python
 print("\n--- Implementación completa de LSTM desde cero ---")
@@ -836,6 +1006,45 @@ print(f"Factor LSTM/RNN: {lstm_params/rnn_params:.2f}x más parámetros")
 ## 🔬 Parte 3: Aplicaciones con PyTorch (60 min)
 
 ### 3.1 LSTM para Clasificación de Texto (Análisis de Sentimiento)
+
+En esta sección pasamos de NumPy a **PyTorch** y construimos un pipeline completo de clasificación de texto con LSTM. El análisis de sentimiento es una tarea **Many-to-One**: la LSTM procesa una secuencia de tokens y produce una única etiqueta de clase al final de la secuencia.
+
+#### Pipeline de clasificación de texto
+
+El flujo de datos sigue estos pasos:
+
+```
+Texto → Tokenización → Índices enteros → Capa Embedding → LSTM → Dropout → Clasificador lineal → Clase
+```
+
+1. **Tokenización**: cada palabra (o subpalabra) se convierte en un índice entero dentro de un vocabulario de tamaño `VOCAB_SIZE`.
+2. **Capa Embedding** (`nn.Embedding`): transforma cada índice en un vector denso de `EMBED_DIM` dimensiones. A diferencia de la codificación *one-hot* (vectores dispersos de dimensión `VOCAB_SIZE`), los *embeddings* son representaciones **densas y aprendibles** que capturan relaciones semánticas entre palabras (p. ej., palabras con significado similar tendrán vectores cercanos). Los parámetros de la capa Embedding son `VOCAB_SIZE × EMBED_DIM`.
+3. **LSTM** (`nn.LSTM`): procesa la secuencia de embeddings paso a paso, produciendo un hidden state $h_t$ en cada instante. Para clasificación usamos **únicamente el último hidden state** $h_T$ (Many-to-One), que resume toda la secuencia.
+4. **Dropout**: regularización estocástica que desactiva aleatoriamente neuronas con probabilidad `p` durante el entrenamiento, reduciendo el sobreajuste.
+5. **Capa lineal**: proyecta el último hidden state desde `HIDDEN_SIZE` dimensiones a `NUM_CLASSES` logits, sobre los que se aplica `CrossEntropyLoss`.
+
+#### Dataset sintético
+
+La clase `SentimentDataset` genera datos sintéticos donde la posición en el vocabulario codifica el sentimiento: los tokens en la mitad superior del vocabulario (`[VOCAB_SIZE//2, VOCAB_SIZE)`) corresponden a la clase **positiva (1)**, y los de la mitad inferior (`[0, VOCAB_SIZE//2)`) a la clase **negativa (0)**. Esto crea una señal clara y aprendible, ideal para validar que la arquitectura funciona correctamente antes de escalarla a datos reales.
+
+#### Hiperparámetros y su rol
+
+| Hiperparámetro | Valor | Función |
+|---|---|---|
+| `VOCAB_SIZE` | 1000 | Tamaño del vocabulario; define la dimensión de la tabla de embeddings |
+| `EMBED_DIM` | 64 | Dimensión del espacio de representación de cada token |
+| `HIDDEN_SIZE` | 128 | Capacidad de memoria de la LSTM; más alto ≈ más expresividad |
+| `NUM_CLASSES` | 2 | Positivo / Negativo |
+| `MAX_LEN` | 30 | Longitud fija de cada secuencia de entrada |
+| `BATCH_SIZE` | 32 | Número de ejemplos procesados en paralelo por iteración |
+| `NUM_EPOCHS` | 10 | Número de pasadas completas sobre el conjunto de entrenamiento |
+
+**Resultados esperados:**
+
+- El entrenamiento de 10 épocas sobre 800 muestras de entrenamiento y 200 de validación es rápido (< 30 segundos en CPU).
+- Dado que el dataset sintético es altamente separable, la precisión en validación debe alcanzar **entre el 92 % y el 96 %** a partir de la época 5-7, y estabilizarse ahí.
+- La pérdida de entrenamiento debe descender de forma monotónica; si se observan oscilaciones grandes, podría indicar una tasa de aprendizaje demasiado alta.
+- Se imprimirá la accuracy final en el conjunto de test, que debe estar en el mismo rango que la validación, confirmando que el modelo generaliza y no sobreajusta.
 
 ```python
 import torch
@@ -1076,6 +1285,60 @@ print("Figura guardada como 'lstm_sentimiento.png'")
 
 ### 3.2 Predicción de Series de Tiempo con LSTM
 
+Las series de tiempo son secuencias de valores ordenados cronológicamente — precios de bolsa, temperaturas horarias, señales de sensores — donde el valor en el instante *t* depende de los valores anteriores. El LSTM es especialmente adecuado para este problema porque sus **puertas de memoria** le permiten retener patrones de largo plazo sin que el gradiente desaparezca.
+
+#### Enfoque de ventana deslizante
+
+La estrategia estándar consiste en transformar la serie en pares supervisados *(X, y)*:
+
+- **X**: las últimas `ventana` observaciones (p. ej., los 20 valores anteriores).
+- **y**: la(s) próxima(s) observación(es) que queremos predecir.
+
+La ventana se desplaza de uno en uno a lo largo de la serie, generando tantos ejemplos como `len(serie) - ventana - horizonte + 1`.
+
+#### Serie sintética sinusoidal con ruido
+
+Usamos una combinación de dos sinusoides con ruido gaussiano añadido. Esta señal es ideal para pruebas porque:
+
+1. Tiene una estructura periódica conocida → podemos medir cuán bien la captura el modelo.
+2. Es suficientemente compleja (dos frecuencias + ruido) para que un modelo lineal falle.
+3. Es reproducible con una semilla fija, lo que permite comparaciones justas.
+
+#### División temporal del dataset
+
+A diferencia de los datos tabulares, en series de tiempo **NO se mezclan los índices** antes de dividir. El orden cronológico es fundamental. La división estándar es:
+
+| Partición | Proporción | Uso |
+|-----------|-----------|-----|
+| Train     | 70 %      | Ajuste de pesos |
+| Validación| 15 %      | Selección de hiperparámetros |
+| Test      | 15 %      | Evaluación final imparcial |
+
+#### Arquitectura `LSTMSeriesPredictor`
+
+El modelo sigue el esquema **LSTM → capas FC**:
+
+```
+Entrada (batch, seq_len=ventana, features=1)
+      ↓
+LSTM (num_layers, hidden_size, dropout entre capas)
+      ↓  solo el último hidden state h_T
+FC1 → ReLU → Dropout
+      ↓
+FC2 → salida escalar (horizonte=1)
+```
+
+#### Función de pérdida y gradient clipping
+
+Para regresión se usa **MSE (Error Cuadrático Medio)**, que penaliza errores grandes proporcionalmente al cuadrado. A diferencia de CrossEntropy (clasificación), no hay función softmax en la salida.
+
+Las RNNs son propensas al problema del **gradiente explosivo**. El `gradient clipping` trunca la norma del gradiente si supera un umbral (p. ej., `max_norm=1.0`), estabilizando el entrenamiento sin impedir el aprendizaje.
+
+**Resultados esperados:**
+- La pérdida MSE de entrenamiento debe descender por debajo de **0.005** en pocas épocas.
+- La curva predicha debe seguir la forma sinusoidal de la serie real con pequeños desfases.
+- El modelo debe generalizar bien al conjunto de test si no hay sobreajuste severo.
+
 ```python
 print("\n--- LSTM para Predicción de Series de Tiempo ---")
 
@@ -1217,6 +1480,31 @@ print("Figura guardada como 'lstm_series_tiempo.png'")
 
 ### 3.3 GRU como Alternativa al LSTM
 
+La **GRU (Gated Recurrent Unit)**, propuesta por Cho et al. en 2014, es una arquitectura recurrente diseñada para simplificar el LSTM manteniendo su capacidad de capturar dependencias a largo plazo.
+
+#### Arquitectura de la GRU
+
+La GRU reduce las cuatro matrices de pesos del LSTM a **tres**, mediante dos mecanismos clave:
+
+| Puerta | Función |
+|--------|---------|
+| **Reset gate** (*r_t*) | Controla cuánto del estado anterior se olvida al calcular el candidato. Con *r_t ≈ 0* el modelo ignora el pasado (útil para el inicio de una nueva frase). |
+| **Update gate** (*z_t*) | Decide qué proporción del estado anterior se conserva vs. qué proporción del nuevo candidato se adopta. Combina las puertas *forget* e *input* del LSTM en una sola operación. |
+
+La fusión del *cell state* y el *hidden state* en un único vector `h_t` es la simplificación más notable respecto al LSTM.
+
+#### ¿Cuándo preferir GRU sobre LSTM?
+
+- **Datos limitados**: Con pocos ejemplos, la menor cantidad de parámetros de la GRU reduce el riesgo de sobreajuste.
+- **Entrenamiento más rápido**: Al tener ~25 % menos parámetros, cada época es más rápida.
+- **Rendimiento comparable**: En series de tiempo, NLP de mediana complejidad y señales de audio, la GRU iguala al LSTM en la mayoría de benchmarks.
+- **LSTM preferible**: Cuando la tarea requiere memorias muy selectivas a largo plazo (e.g., comprensión de documentos extensos) o cuando se dispone de suficientes datos para aprovechar la mayor capacidad expresiva del LSTM.
+
+**Resultados esperados:**
+- La GRU debe tener aproximadamente un **15–20 % menos de parámetros** que el LSTM equivalente para el mismo `hidden_size`.
+- El tiempo de entrenamiento por época debe ser menor que el del LSTM.
+- La pérdida final de validación debe ser comparable (diferencia < 5 % en la mayoría de los casos) a la del `LSTMSeriesPredictor`.
+
 ```python
 print("\n--- GRU (Gated Recurrent Unit) como alternativa al LSTM ---")
 
@@ -1296,6 +1584,32 @@ print(f"Diferencia:      {lstm_params - gru_params:,} ({100*(lstm_params-gru_par
 
 ### 4.1 LSTM Bidireccional
 
+En un LSTM unidireccional, el estado oculto en el instante *t* sólo tiene acceso a los tokens anteriores (*x_1, …, x_t*). Sin embargo, muchas tareas de procesamiento de lenguaje natural requieren entender el contexto completo — tanto lo que precede como lo que sigue a un token. El **LSTM Bidireccional (BiLSTM)** soluciona esto procesando la secuencia en **dos pasadas simultáneas**:
+
+1. **LSTM hacia adelante** (*forward*): lee la secuencia de izquierda a derecha → produce `h_fwd_t`.
+2. **LSTM hacia atrás** (*backward*): lee la secuencia de derecha a izquierda → produce `h_bwd_t`.
+
+Los dos estados se **concatenan** en cada paso de tiempo:
+
+```
+h_bi_t = [h_fwd_t ; h_bwd_t]   →  dimensión = 2 × hidden_size
+```
+
+#### Consecuencias prácticas
+
+- **Dimensión de salida duplicada**: si `hidden_size=64`, la salida del BiLSTM tiene dimensión 128. Las capas lineales downstream deben tener en cuenta este factor 2.
+- **Mayor contexto, mejor rendimiento**: en tareas como *Named Entity Recognition* (NER), *Question Answering* y traducción automática, el BiLSTM supera sistemáticamente al LSTM unidireccional porque cada posición "conoce" toda la frase.
+- **No apto para streaming en tiempo real**: el LSTM backward necesita toda la secuencia antes de comenzar → introduce latencia equivalente a la longitud de la secuencia.
+
+#### Casos de uso típicos
+
+| ✅ Apropiado | ❌ No apropiado |
+|-------------|----------------|
+| Clasificación de texto completo | Generación de texto token a token |
+| NER y etiquetado POS | Traducción autoregresiva (decoder) |
+| Extracción de información | Predicción de series de tiempo en tiempo real |
+| Encoders de Seq2Seq | |
+
 ```python
 print("=" * 60)
 print("LSTM BIDIRECCIONAL")
@@ -1366,6 +1680,29 @@ print(f"Factor BiLSTM/LSTM:             {bilstm_params/unidirec_params:.2f}x")
 
 ### 4.2 LSTM Apilado (Stacked LSTM)
 
+Así como las CNN ganan expresividad apilando capas convolucionales que aprenden jerarquías de características (bordes → texturas → formas), el **Stacked LSTM** apila capas recurrentes para construir **representaciones jerárquicas de la secuencia**:
+
+- **Capa 1**: aprende patrones locales y de corto plazo (n-gramas, fluctuaciones rápidas).
+- **Capa 2**: combina esos patrones en estructuras de mediano alcance (frases, ciclos periódicos).
+- **Capa 3+**: captura dependencias de largo alcance y patrones globales.
+
+En PyTorch, `nn.LSTM(num_layers=N)` implementa esto automáticamente: la salida completa de cada capa (*todos* los hidden states, no solo el último) se pasa como entrada a la capa siguiente.
+
+#### Compensaciones a tener en cuenta
+
+| Factor | 2 capas | 4+ capas |
+|--------|---------|---------|
+| Capacidad del modelo | ✅ Mayor | ✅✅ Mucho mayor |
+| Riesgo de sobreajuste | Moderado | ⚠️ Alto |
+| Tiempo de entrenamiento | Moderado | Lento |
+| Dificultad de optimización | Manejable | ⚠️ Requiere cuidado |
+
+**Guía práctica**: para la mayoría de las tareas, **2–3 capas** ofrecen el mejor equilibrio. Añadir más capas sin regularización adecuada rara vez mejora los resultados y puede empeorarlos. El **dropout entre capas** (parámetro `dropout` de `nn.LSTM`) es esencial para evitar el sobreajuste al apilar.
+
+**Resultados esperados:**
+- El número de parámetros crece aproximadamente de forma **lineal** con el número de capas (la primera capa tiene más parámetros porque recibe la entrada original; las capas siguientes reciben `hidden_size`).
+- Más de 3 capas no suele mejorar el rendimiento en datasets pequeños/medianos.
+
 ```python
 print("\n--- LSTM Apilado (Stacked LSTM) ---")
 
@@ -1401,6 +1738,27 @@ for cfg in configs:
 ```
 
 ### 4.3 Arquitectura Encoder-Decoder
+
+El paradigma **Seq2Seq** (Sutskever et al., 2014) permite que una red neuronal transforme una secuencia de longitud arbitraria en otra secuencia de longitud diferente. Esta capacidad abre la puerta a tareas donde la entrada y la salida no tienen la misma longitud ni vocabulario.
+
+#### El paradigma Encoder-Decoder
+
+El modelo se divide en dos componentes especializados:
+
+- **Encoder**: lee *toda* la secuencia de entrada y comprime su información en un **vector de contexto** — el último estado oculto del LSTM encoder. El encoder "entiende" la entrada pero no produce salida directamente.
+- **Decoder**: recibe el vector de contexto como estado inicial y genera la secuencia de salida **token por token**, de forma autoregresiva (cada token generado alimenta la siguiente predicción).
+
+#### El cuello de botella del vector de contexto
+
+La limitación fundamental del Encoder-Decoder clásico es que **toda la información de la secuencia de entrada debe comprimirse en un único vector de tamaño fijo**. Para secuencias largas (más de 20–30 tokens), este cuello de botella provoca que el decoder "olvide" partes de la entrada, degradando la calidad de la salida.
+
+#### Teacher Forcing
+
+Durante el entrenamiento se suele usar **teacher forcing**: en lugar de alimentar al decoder con sus propias predicciones (que pueden ser erróneas al inicio), se le alimenta con los tokens correctos de la secuencia objetivo. Esto acelera la convergencia pero puede crear una discrepancia entre entrenamiento e inferencia (*exposure bias*).
+
+#### Conexión con el Laboratorio 12
+
+Esta limitación del vector de contexto fue la motivación directa para el **mecanismo de atención** (Bahdanau et al., 2015), que permite al decoder acceder a *todos* los estados ocultos del encoder — no solo al último — ponderando su relevancia para cada paso de decodificación. La atención es la base conceptual de los Transformers que estudiarás en el **Laboratorio 12**.
 
 ```python
 print("\n--- Arquitectura Encoder-Decoder ---")
@@ -1532,6 +1890,42 @@ print(f"\n→ Ver Lab 12 (Transformers) para la solución al cuello de botella c
 ## 📊 Análisis de Rendimiento
 
 ### Benchmark: RNN vs LSTM vs GRU
+
+Una vez comprendidas las tres arquitecturas recurrentes principales, es fundamental **compararlas empíricamente** bajo condiciones idénticas para tomar decisiones de diseño informadas. Este benchmark mide tres dimensiones clave:
+
+1. **Número de parámetros**: indica la capacidad del modelo y el costo de memoria.
+2. **Tiempo de entrenamiento por época**: relevante para iteración rápida y despliegue.
+3. **Pérdida final de validación**: mide la calidad del modelo en datos no vistos.
+
+#### Configuración experimental
+
+Para que la comparación sea justa, todos los modelos se entrenan con:
+
+- El **mismo `hidden_size`** → misma dimensionalidad del espacio latente.
+- El **mismo número de capas** (2).
+- El **mismo número de épocas** y tasa de aprendizaje.
+- El **mismo dataset** (clasificación de secuencias sintéticas).
+
+#### ¿Qué esperar?
+
+| Arquitectura | Parámetros | Velocidad | Calidad |
+|-------------|-----------|-----------|---------|
+| **RNN vanilla** | ⬇️ Menor | ⬆️ Más rápido | ⬇️ Peor en secuencias largas |
+| **GRU** | Medio | Rápido | ✅ Buena |
+| **LSTM** | ⬆️ Mayor | Más lento | ✅ Buena / ligeramente superior |
+
+La RNN vanilla tiene el menor número de parámetros pero falla en secuencias largas por el problema del gradiente desvaneciente. La GRU tiene aproximadamente **¾ de los parámetros del LSTM** (3 matrices vs. 4) y suele alcanzar un rendimiento similar en tareas de mediana complejidad. El LSTM puede superar a la GRU en tareas que requieren memorias muy selectivas a largo plazo.
+
+#### Criterios de selección de modelo
+
+- **Prioridad: velocidad / recursos limitados** → GRU o RNN (si secuencias cortas).
+- **Prioridad: calidad / secuencias largas** → LSTM o BiLSTM.
+- **Prioridad: balance óptimo** → GRU (regla empírica más frecuente en la literatura).
+
+**Resultados esperados:**
+- El LSTM tendrá el mayor número de parámetros (~33 % más que la GRU para el mismo `hidden_size`).
+- La GRU tendrá un tiempo de entrenamiento por época entre un 10 y 25 % menor que el LSTM.
+- Las pérdidas finales de GRU y LSTM serán comparables; la RNN vanilla tendrá mayor pérdida.
 
 ```python
 import time
