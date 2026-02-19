@@ -828,7 +828,7 @@ La clase `CeldaLSTM` encapsula todos los parámetros y la lógica forward de la 
 
 2. **Inicialización con escala $\sqrt{1/D}$**: limita la magnitud de las pre-activaciones al inicio del entrenamiento, evitando saturación inmediata de las sigmoides y el $\tanh$.
 
-3. **Sesgo de olvido inicializado en $+1$** (Jozefowicz *et al.*, 2015): inicializar $b_f = 1$ hace que $f_t \approx \sigma(1) \approx 0.73$ al principio, es decir, la celda **recuerda por defecto**. Esto es crucial en las primeras iteraciones del entrenamiento, cuando los gradientes son ruidosos y es preferible no perder información del estado de celda.
+3. **Sesgo de olvido inicializado en $+1$** (Jozefowicz et al., 2015): inicializar $b_f = 1$ hace que $f_t \approx \sigma(1) \approx 0.73$ al principio, es decir, la celda **recuerda por defecto**. Esto es crucial en las primeras iteraciones del entrenamiento, cuando los gradientes son ruidosos y es preferible no perder información del estado de celda.
 
 #### Las dos funciones principales
 
