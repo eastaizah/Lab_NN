@@ -142,6 +142,8 @@ F1-Score   = 2 * (P * R) / (P + R)      → Media armónica de Precision y Recal
 
 ### 1.1 Implementación Desde Cero
 
+La **matriz de confusión** es una tabla cuadrada de dimensión K×K (donde K es el número de clases) que resume el rendimiento de un clasificador comparando las etiquetas predichas con las etiquetas reales. Cada fila representa la **clase verdadera** de las muestras, mientras que cada columna representa la **clase predicha** por el modelo; esta convención es fundamental para interpretar correctamente los valores. La **diagonal principal** contiene los aciertos del modelo —es decir, los casos en que la predicción coincide con la realidad—, mientras que los elementos **fuera de la diagonal** representan errores, indicando confusiones entre pares de clases específicas. Construir esta clase desde cero, en lugar de simplemente llamar a `sklearn.metrics.confusion_matrix`, obliga al estudiante a entender la estructura interna del cálculo: el conteo de co-ocurrencias entre cada par (clase_real, clase_predicha), lo cual desarrolla intuición sobre cómo interpretar cada celda. Al finalizar, se espera obtener una clase reutilizable con métodos de visualización que permitan identificar de un vistazo cuáles son los pares de clases más confundidos por el modelo.
+
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
@@ -240,6 +242,8 @@ cm.plot()
 
 ### 1.2 Caso de Estudio: Detector de Spam
 
+Un concepto fundamental en evaluación de clasificadores es la **asimetría en el costo de los errores**: no todos los tipos de error tienen la misma gravedad para el negocio o el usuario. En un detector de spam, un **Falso Positivo** (un correo legítimo marcado como spam) puede hacer que el usuario pierda un mensaje importante —como una confirmación de vuelo o una oferta de trabajo—, lo que constituye un error **muy grave**. Por el contrario, un **Falso Negativo** (un mensaje de spam que pasa al inbox) es simplemente molesto pero no causa daño real, resultando en un error **tolerable**. Esta asimetría debería influir directamente en el diseño del modelo: en lugar del umbral por defecto de 0.5, convendría usar un umbral más alto para predecir "spam", aceptando más FN a cambio de reducir los FP. Para un clasificador de ~85% de accuracy en un conjunto donde el 30% son spam, se espera que la mayoría de los errores sean FN (spam no detectado), ya que esa estrategia conservadora protege mejor los correos legítimos.
+
 ```python
 # Simular predicciones de un detector de spam
 np.random.seed(42)
@@ -272,9 +276,11 @@ print(f"- {cm_spam.fp} emails legítimos marcados como spam ⚠️⚠️")
 print(f"- {cm_spam.tn} emails legítimos clasificados correctamente")
 ```
 
-**Actividad 1.1:** Crea una matriz de confusión para un problema médico (detección de enfermedad).
+**Actividad 1.1:** Crea una matriz de confusión para un problema médico (detección de enfermedad). Documenta cuántos FP y FN obtuviste y reflexiona sobre cuál es más grave en el contexto médico.
 
 ### 1.3 Matriz de Confusión Multiclase
+
+Cuando el problema tiene K > 2 clases, la matriz de confusión se extiende a una tabla K×K donde cada celda (i, j) contiene el número de ejemplos de la clase real i que fueron predichos como clase j. El análisis de esta matriz sigue el enfoque **"uno contra el resto"** (One vs. Rest): para cada clase k, se evalúa cuántos de sus ejemplos fueron correctamente identificados (celda diagonal) y hacia qué otras clases tiende a confundirse (celdas fuera de la diagonal en la fila k). En la inspección visual, lo más importante es identificar los pares de clases con mayor confusión mutua, ya que esto revela si hay similitudes semánticas o de representación que el modelo no logra diferenciar. La **matriz de confusión normalizada** (dividiendo cada fila por el total de muestras de esa clase) es especialmente reveladora en problemas multiclase: permite comparar el rendimiento por clase independientemente de cuántas muestras tiene cada una, exponiendo clases donde el modelo rinde pobremente aunque representen pocos ejemplos. Se espera que las celdas diagonales tengan valores cercanos a 1.0 en un modelo bien entrenado, con errores concentrados entre clases visualmente similares.
 
 ```python
 # Ejemplo con 3 clases
@@ -295,6 +301,24 @@ cm_multi.plot(normalize=True)
 ## 🔬 Parte 2: Métricas de Clasificación (50 min)
 
 ### 2.1 Implementación de Métricas Básicas
+
+Cada métrica de clasificación captura un aspecto diferente del comportamiento del modelo, y elegir la correcta es tan importante como diseñar la arquitectura. A continuación se desarrolla la intuición detrás de cada una:
+
+- **Accuracy** `= (TP + TN) / Total`: Mide la fracción de predicciones correctas sobre el total. Es apropiada cuando las clases están balanceadas y los errores tienen el mismo costo, pero se vuelve **engañosa** en datasets desbalanceados —un clasificador que siempre predice la clase mayoritaria puede tener 99% de accuracy y ser completamente inútil.
+
+- **Precision** `= TP / (TP + FP)`: Responde a la pregunta *"de todas las veces que el modelo dijo 'positivo', ¿cuántas veces tenía razón?"*. Alta precisión significa pocos falsos positivos; es la métrica clave cuando el costo de una alarma falsa es alto (p. ej., spam filters, sistemas de aprobación de crédito).
+
+- **Recall (Sensibilidad)** `= TP / (TP + FN)`: Responde a *"de todos los casos positivos reales, ¿cuántos detectó el modelo?"*. Alto recall significa que el modelo "no se pierde" casos positivos; es crítico cuando el costo de no detectar un positivo es alto (p. ej., diagnóstico médico, detección de fraude).
+
+- **F1-Score** `= 2·(P·R)/(P+R)`: La **media armónica** de Precision y Recall. A diferencia de la media aritmética, la armónica penaliza fuertemente cuando uno de los dos valores es bajo: un modelo con Precision=1.0 y Recall=0.0 obtiene F1=0, no 0.5. Esto lo hace más informativo cuando existe un balance entre ambos objetivos.
+
+- **Specificity** `= TN / (TN + FP)`: También llamada "True Negative Rate", mide qué tan bien el modelo identifica los negativos reales. Es la contraparte del Recall para la clase negativa; en medicina se conoce como "especificidad de la prueba".
+
+- **F-beta Score** `= (1+β²)·(P·R)/(β²·P+R)`: Generalización del F1 que permite controlar el balance entre Precision y Recall. Con **β < 1** se da más peso a Precision (útil cuando FP son más costosos); con **β > 1** se prioriza Recall (útil cuando FN son más costosos). El F2-Score (β=2) es común en detección médica.
+
+- **MCC (Matthews Correlation Coefficient)**: Considerado por muchos investigadores como la métrica individual más informativa para clasificación binaria, ya que considera los cuatro valores de la matriz de confusión (TP, TN, FP, FN) de forma simétrica. Tiene rango [-1, 1], donde 1 es predicción perfecta, 0 equivale a una predicción aleatoria y -1 indica predicción completamente inversa. A diferencia del F1, no se ve distorsionado por el desbalance de clases.
+
+La implementación desde cero de esta clase consolidará la comprensión de cada fórmula y permitirá ver cómo interactúan entre sí en el reporte final.
 
 ```python
 class ClassificationMetrics:
@@ -457,6 +481,8 @@ metrics.report()
 
 ### 2.2 Comparación Visual de Métricas
 
+La comparación visual de métricas entre modelos es esencial para la selección de modelos, ya que los números en una tabla pueden resultar difíciles de interpretar en conjunto. Cuando se optimiza un modelo para una única métrica —por ejemplo, maximizar Accuracy— se corre el riesgo de degradar silenciosamente otras métricas igualmente importantes: un modelo que maximiza Accuracy en datos desbalanceados puede tener Recall cercano a cero. Los **gráficos de barras** con múltiples métricas permiten ver de un vistazo el "perfil" del modelo: un modelo bien balanceado mostrará barras de altura similar para Precision y Recall, mientras que un modelo sesgado mostrará una barra alta en una y baja en la otra. Un **perfil ideal** presenta Accuracy, Precision, Recall y F1 todos por encima de 0.85, sin diferencias mayores a 0.10 entre ellos; cuando Accuracy supera a F1 en más de 0.15 puntos, se debe investigar el balance de clases del dataset. La comparación entre un modelo con métricas balanceadas vs. un modelo aleatorio (baseline) también es fundamental para validar que el modelo realmente aprendió algo útil.
+
 ```python
 def plot_metrics_comparison(y_true, y_pred_list, model_names):
     """
@@ -515,9 +541,11 @@ plot_metrics_comparison(
 )
 ```
 
-**Actividad 2.1:** Crea 3 modelos con diferentes balances Precision-Recall y compáralos.
+**Actividad 2.1:** Crea 3 modelos con diferentes balances Precision-Recall y compáralos. Observa cómo el perfil de barras cambia y reflexiona sobre cuál modelo elegirías para cada contexto de aplicación.
 
 ### 2.3 Efecto del Umbral de Decisión
+
+En clasificación probabilística, el modelo no produce directamente una etiqueta binaria sino una **probabilidad** entre 0 y 1. El **umbral de decisión** (por defecto 0.5) es el valor a partir del cual se decide predecir "positivo": si p(x) ≥ umbral → Positivo. El valor de 0.5 es una elección arbitraria que asume que ambos tipos de error tienen el mismo costo y que las clases están balanceadas; en la práctica, este umbral rara vez es el óptimo. Cuando se **sube el umbral** (p. ej., a 0.7), el modelo se vuelve más conservador: solo predice "positivo" cuando está muy seguro, lo que aumenta la Precision pero reduce el Recall (más FN). Cuando se **baja el umbral** (p. ej., a 0.3), el modelo es más agresivo: predice "positivo" con menos certeza, aumentando el Recall pero reduciendo la Precision (más FP). La **curva Precision-Recall** visualiza este tradeoff para todos los umbrales posibles, y su área bajo la curva (AUCPR) resume la calidad del modelo independientemente del umbral elegido. El **punto de operación** óptimo se selecciona según los requisitos del negocio: si FN son más costosos, se elige un umbral bajo; si FP son más costosos, se elige un umbral alto. El máximo del F1-Score a lo largo de los umbrales indica el punto de mejor balance.
 
 ```python
 def analyze_threshold_effect(y_true, y_proba, thresholds=np.linspace(0, 1, 21)):
@@ -591,11 +619,13 @@ y_proba[y_true == 1] += 0.3  # Positivos tienen mayor probabilidad
 analyze_threshold_effect(y_true, y_proba)
 ```
 
-**Actividad 2.2:** Encuentra el umbral óptimo para un problema donde FN son 2x más costosos que FP.
+**Actividad 2.2:** Encuentra el umbral óptimo para un problema donde FN son 2x más costosos que FP. Documenta el umbral seleccionado, las métricas resultantes y compara con el umbral que maximiza F1.
 
 ## 🔬 Parte 3: Datasets Desbalanceados (40 min)
 
 ### 3.1 El Problema del Desbalance
+
+El **desbalance de clases** ocurre cuando una o más clases tienen significativamente más muestras que otras en el conjunto de datos. Este fenómeno es extremadamente común en aplicaciones reales: en detección de fraude bancario, apenas el 0.1–1% de las transacciones son fraudulentas; en diagnóstico de enfermedades raras, los casos positivos pueden representar menos del 1%; en clasificación de tráfico de red, el tráfico malicioso es una fracción mínima del tráfico total legítimo. El problema fundamental es que la **Accuracy se vuelve una métrica completamente engañosa**: si el 95% de las muestras son de clase negativa, un clasificador que **siempre predice negativo** (el "clasificador mayoritario naïve") obtiene 95% de Accuracy sin haber aprendido absolutamente nada. Este clasificador naïve debe usarse siempre como **baseline** en problemas desbalanceados: cualquier modelo real debe superar este umbral trivial en métricas relevantes (Recall, F1, MCC). El verdadero indicador de utilidad en estos contextos es el Recall de la clase minoritaria —si el modelo no detecta al menos una fracción razonable de los casos positivos reales, es inutilizable— junto con el F1-Score que penaliza simultáneamente los falsos positivos y negativos.
 
 ```python
 # Crear dataset muy desbalanceado (95% negativos, 5% positivos)
@@ -638,6 +668,16 @@ print("→ Accuracy NO es suficiente en datasets desbalanceados!")
 ```
 
 ### 3.2 Técnicas para Datos Desbalanceados
+
+Existen tres grandes estrategias para lidiar con el desbalance de clases, cada una con sus ventajas y desventajas:
+
+**1. Sobremuestreo (Oversampling) de la clase minoritaria:** Duplica o genera nuevas muestras artificiales de la clase minoritaria hasta igualar el número de muestras de la clase mayoritaria. La versión básica (Random Oversampling) simplemente duplica muestras existentes; versiones avanzadas como SMOTE generan muestras sintéticas interpolando entre vecinos. *Pros:* Simple, no pierde información del conjunto original. *Contras:* Riesgo de **overfitting** sobre las muestras duplicadas, ya que el modelo puede memorizar exactamente esas instancias en lugar de generalizar.
+
+**2. Submuestreo (Undersampling) de la clase mayoritaria:** Reduce aleatoriamente la clase mayoritaria hasta igualar el tamaño de la minoritaria, descartando muestras. *Pros:* Reduce el tiempo de entrenamiento, puede eliminar ruido de la clase mayoritaria. *Contras:* **Pérdida de información potencialmente valiosa** al descartar muestras legítimas; no recomendable cuando el dataset ya es pequeño.
+
+**3. Pesos de clase (Class Weights):** Modifica la función de pérdida para asignar un penalización mayor a los errores en la clase minoritaria, sin alterar el dataset en sí. El peso de cada clase es inversamente proporcional a su frecuencia: `w_k = N_total / (K × N_k)`. *Pros:* Usa todas las muestras disponibles, es más estable que el resampling. *Contras:* Requiere que el algoritmo soporte class weights; puede ser más difícil de ajustar el balance correcto.
+
+**¿Cuándo usar cada estrategia?** Si el dataset tiene suficientes muestras de la clase minoritaria (>500), prefiere **class weights** por su simplicidad. Si las muestras son muy pocas (<100), usa **oversampling** para aumentar la diversidad. Si el tiempo de entrenamiento es crítico y el dataset es muy grande, considera **undersampling** con cuidado.
 
 ```python
 class ImbalancedDataHandler:
@@ -727,11 +767,13 @@ for cls, weight in weights.items():
     print(f"  Clase {cls}: {weight:.4f}")
 ```
 
-**Actividad 3.1:** Compara el rendimiento de un modelo entrenado en datos originales vs balanceados.
+**Actividad 3.1:** Compara el rendimiento de un modelo entrenado en datos originales vs balanceados. Documenta específicamente el Recall de la clase minoritaria en cada caso y explica por qué las diferencias observadas tienen sentido.
 
 ## 🔬 Parte 4: Validación Cruzada (45 min)
 
 ### 4.1 K-Fold Cross-Validation
+
+Evaluar un modelo con una única división train/test tiene un problema fundamental: la **alta varianza en la estimación del rendimiento**. Si el conjunto de test, por azar, contiene muestras "fáciles", la métrica será optimista; si contiene muestras "difíciles", será pesimista. Este problema se conoce en estadística como **varianza del estimador**. La **K-Fold Cross-Validation** resuelve esto dividiendo el dataset en K subconjuntos ("folds") de tamaño similar: en cada iteración, uno de los K folds se usa como conjunto de validación y los K-1 restantes como entrenamiento. Al rotar sistemáticamente cuál fold actúa como validación, **todas las muestras son usadas para validación exactamente una vez**, lo que produce K estimaciones de la métrica. El promedio de estas K estimaciones es un estimador más robusto del rendimiento real del modelo. La elección de K implica un tradeoff bias-varianza: **K=5** es el más utilizado en la práctica porque ofrece un buen balance entre costo computacional y varianza del estimador; **K=10** produce estimaciones más estables pero requiere más tiempo. Con K=N (Leave-One-Out), la varianza del estimador es mínima pero el costo computacional es prohibitivo. La variante **Stratified K-Fold** es especialmente importante en datasets desbalanceados: garantiza que la proporción de clases en cada fold sea representativa del dataset completo, evitando folds donde la clase minoritaria esté ausente o sobrerrepresentada.
 
 ```python
 class KFoldCrossValidator:
@@ -861,6 +903,8 @@ results = cv.cross_validate(model, X_dummy, y_true_imbalanced)
 
 ### 4.2 Visualización de Resultados de CV
 
+La varianza en los scores entre folds es una señal diagnóstica crucial sobre la **estabilidad del modelo**. Si los scores varían poco entre folds (desviación estándar < 0.03), el modelo es **robusto**: su rendimiento es predecible independientemente del subconjunto de datos usado, lo que genera confianza para su despliegue en producción. Si la varianza es alta (std > 0.05), el modelo es **sensible a la partición de datos**: puede estar sobreajustando al conjunto de entrenamiento o puede haber subconjuntos del dataset con características muy diferentes (heterogeneidad). Las **barras de error** en los gráficos de métricas promedio representan ±1 desviación estándar entre folds: barras cortas indican consistencia, barras largas indican inestabilidad. Para la **selección de modelos** con cross-validation, no solo se debe preferir el modelo con mayor media, sino también considerar el que tenga menor varianza: un modelo con media=0.87 y std=0.01 es preferible a uno con media=0.89 y std=0.08, especialmente en aplicaciones críticas. Los **intervalos de confianza** al 95% se pueden calcular como `media ± 1.96 × std / √K`, y son la forma correcta de reportar métricas en papers y reportes profesionales.
+
 ```python
 def plot_cv_results(cv_results):
     """Visualiza resultados de cross-validation"""
@@ -911,11 +955,13 @@ def plot_cv_results(cv_results):
 plot_cv_results(results)
 ```
 
-**Actividad 4.1:** Implementa Stratified K-Fold que mantiene la proporción de clases en cada fold.
+**Actividad 4.1:** Implementa Stratified K-Fold que mantiene la proporción de clases en cada fold. Compara los resultados con el K-Fold estándar en un dataset desbalanceado y documenta las diferencias en la varianza entre folds.
 
 ## 📊 Análisis Final de Rendimiento
 
 ### Dashboard Completo de Evaluación
+
+Un **reporte de evaluación profesional** debe integrar todas las perspectivas del rendimiento del modelo en un único documento coherente, facilitando tanto la toma de decisiones técnicas como la comunicación con stakeholders no técnicos. El flujo de trabajo estándar es: **entrenar** el modelo con los datos de entrenamiento → **evaluar** con el conjunto de test usando múltiples métricas → **interpretar** los resultados en el contexto del problema → **decidir** si el modelo es apto para producción o requiere ajustes. Para una **audiencia técnica**, el reporte debe incluir la matriz de confusión completa, todas las métricas con intervalos de confianza, la curva Precision-Recall y los resultados de cross-validation. Para una **audiencia no técnica** (gerencia, clientes), conviene traducir las métricas a términos de negocio: "el modelo detecta el 87% de los fraudes reales" en lugar de "Recall = 0.87". Los **intervalos de confianza** para las métricas son especialmente importantes cuando el conjunto de test es pequeño: con 100 muestras, una diferencia de 2% en Accuracy entre dos modelos puede no ser estadísticamente significativa. El dashboard que se implementa a continuación integra matriz de confusión normalizada, barras de métricas, distribución de predicciones, curva Precision-Recall y resumen textual en una única figura de referencia profesional.
 
 ```python
 class EvaluationDashboard:
