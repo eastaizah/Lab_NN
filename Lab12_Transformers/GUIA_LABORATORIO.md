@@ -248,11 +248,9 @@ def crear_mascara_causal(seq_len):
     Crea una máscara triangular inferior para atención causal.
     Las posiciones superiores reciben -inf para ser ignoradas en softmax.
     """
-    # Crea matriz de -inf
-    mask = np.full((seq_len, seq_len), -np.inf)
-    # Pone 0 en la diagonal inferior (posiciones permitidas)
-    mask = np.tril(np.zeros((seq_len, seq_len)))
-    # Convierte la parte superior a -inf
+    # Comienza con una matriz de ceros (posiciones permitidas)
+    mask = np.zeros((seq_len, seq_len))
+    # Asigna -inf a la parte triangular superior (posiciones futuras — prohibidas)
     mask[np.triu_indices(seq_len, k=1)] = -np.inf
     return mask
 mascara = crear_mascara_causal(4)
