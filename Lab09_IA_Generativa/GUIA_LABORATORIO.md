@@ -2292,7 +2292,7 @@ Para modelos entrenados en **MNIST/digits sklearn** (dataset simple):
 | GAN | D(fake) | 0.4-0.6 (equilibrio) | ~0.5 (aleatorio) |
 | GAN | Mode coverage | 9-10/10 clases | Variable |
 
-> ⚠️ **Nota importante**: Los valores de la tabla son orientativos para datasets simples de 8×8 píxeles. Para MNIST completo (28×28) o datasets más complejos, los valores cambiarán significativamente. **Siempre calibra tus expectativas en función del dataset y la capacidad del modelo.**
+> ⚠️ **Nota importante**: Los valores de la tabla son orientativos para el dataset **`sklearn.datasets.load_digits`** (imágenes de 8×8 píxeles). Para el dataset **MNIST completo** (28×28 píxeles), los valores de MSE serán distintos al cambiar la dimensionalidad de entrada (784 vs. 64). Para datasets aún más complejos (Fashion-MNIST, CIFAR-10), los valores cambiarán significativamente. **Siempre calibra tus expectativas en función del dataset y la capacidad del modelo.**
 
 ---
 
