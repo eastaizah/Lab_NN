@@ -594,9 +594,9 @@ La gráfica usará **escala logarítmica en el eje Y** para que las tres curvas 
 
 **Resultados esperados:**
 
-- **Curva roja** *(escala=0.5, desvaneciente)*: la norma caerá de `1.0` a valores próximos a **`10⁻¹⁵`** o menores después de 50 pasos —prácticamente cero.
+- **Curva roja** *(escala=0.5, desvaneciente)*: la norma caerá de `1.0` a valores próximos a **`1e-15`** o menores después de 50 pasos —prácticamente cero.
 - **Curva verde** *(escala=1.0, estable)*: la norma se mantendrá relativamente constante alrededor de **`1.0`** a lo largo de todos los pasos.
-- **Curva naranja** *(escala=1.5, explosivo)*: la norma crecerá hasta valores del orden de **`10⁶`** o superiores, representando una explosión de gradiente.
+- **Curva naranja** *(escala=1.5, explosivo)*: la norma crecerá hasta valores del orden de **`1e6`** o superiores, representando una explosión de gradiente.
 - El análisis cuantitativo imprimirá el *ratio* `norma_final / norma_inicial` para cada caso, confirmando los órdenes de magnitud esperados.
 - Se guardará la figura `gradiente_desvaneciente.png`.
 
