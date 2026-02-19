@@ -260,6 +260,35 @@ for t, (h_t, y_t) in enumerate(zip(H, Y)):
 
 ### 1.2 Forward Pass en Secuencias — Visualización
 
+Para comprender intuitivamente cómo una RNN procesa una secuencia, es fundamental **visualizar la red "desenrollada"** (*unfolded*) en el tiempo. Al desenrollar la RNN, lo que conceptualmente es un único módulo con un bucle recurrente se transforma en una cadena de copias idénticas —una por cada paso temporal— donde cada copia comparte exactamente los mismos pesos.
+
+**¿Qué muestra el diagrama?**
+
+| Elemento | Color | Descripción |
+|---|---|---|
+| **Celda RNN** | Verde | Módulo con pesos compartidos `W_xh`, `W_hh`, `b_h` |
+| **Entrada** `x_t` | Azul | Vector de entrada en el instante `t` |
+| **Salida** `y_t` | Naranja | Predicción producida en el instante `t` |
+| **Estado oculto** `h_t` | Gris | Memoria que fluye de izquierda a derecha entre celdas |
+
+La flecha horizontal `h_t` que conecta cada celda con la siguiente es el corazón de la arquitectura recurrente: **es el mecanismo mediante el cual la información del pasado se transmite al futuro**, permitiendo que la celda del paso `t+1` "recuerde" lo que ocurrió antes.
+
+**Dos tipos fundamentales de tarea secuencial:**
+
+- **Many-to-One** *(muchos a uno)*: la red consume toda la secuencia pero produce **una única salida** al final (por ejemplo, análisis de sentimiento: leer una reseña completa y clasificarla como positiva o negativa). Sólo se utiliza `H[-1]`, el estado oculto del último paso.
+- **Many-to-Many** *(muchos a muchos)*: la red produce **una salida en cada paso temporal** (por ejemplo, etiquetado morfosintáctico *Part-of-Speech*: asignar una etiqueta a cada palabra de una frase). Se utilizan todas las salidas `Y[0], Y[1], …, Y[T-1]`.
+
+Al ejecutar el código observa cómo:
+- Las **celdas RNN son idénticas** (mismos pesos), lo que hace que el número de parámetros sea independiente de la longitud de la secuencia.
+- El **estado oculto crece** de izquierda a derecha, acumulando contexto progresivamente.
+- En *Many-to-One* solo la última salida lleva información de toda la secuencia; en *Many-to-Many* cada salida lleva información hasta ese instante.
+
+**Resultados esperados:**
+
+- Se generará y guardará la figura `rnn_desenvuelta.png` con el diagrama de la RNN de 4 pasos temporales.
+- En la consola aparecerá la confirmación `"Figura guardada como 'rnn_desenvuelta.png'"`.
+- La salida de *Many-to-One* tendrá `shape = (output_size, 1)` (un único vector); la salida de *Many-to-Many* será una lista de `seq_len` vectores del mismo shape, mostrando que la red produjo una predicción por cada elemento de la secuencia.
+
 ```python
 print("\n--- Visualización del flujo de información en RNN ---")
 
@@ -348,6 +377,40 @@ print(f"Many-to-Many (etiquetado POS): {len(y_m2m)} salidas, cada una de shape {
 ```
 
 ### 1.3 Backpropagation Through Time (BPTT)
+
+El algoritmo de retropropagación estándar (*backpropagation*) calcula gradientes en redes con una arquitectura estática de capas. Las RNN, sin embargo, procesan secuencias con un grafo computacional que **se extiende en el tiempo**: cada paso temporal `t` depende del estado anterior `h_{t-1}`. Para entrenar una RNN es necesario adaptar la retropropagación a esta estructura temporal, lo que da lugar al algoritmo **Backpropagation Through Time (BPTT)**.
+
+**¿Cómo fluyen los gradientes hacia atrás en el tiempo?**
+
+Dado que el estado oculto en cada paso se calcula como `h_t = tanh(W_xh · x_t + W_hh · h_{t-1} + b_h)`, la pérdida total `L` depende de `h_t` tanto de manera directa (a través de la salida `y_t`) como indirecta (a través de todos los pasos futuros). El gradiente del peso `W` acumula contribuciones de **todos los pasos temporales**:
+
+$$\frac{\partial L}{\partial W} = \sum_{t=1}^{T} \frac{\partial L}{\partial h_t} \cdot \frac{\partial h_t}{\partial W}$$
+
+En la práctica, el algoritmo recorre la secuencia **al revés** (de `t = T-1` hasta `t = 0`), propagando el gradiente a través de la derivada de la función `tanh`:
+
+```
+da_t = dh_t ⊙ (1 - h_t²)       ← derivada de tanh
+dh_{t-1} = W_hh.T · da_t        ← propagar hacia atrás en el tiempo
+```
+
+**¿Por qué se incluye *gradient clipping*?**
+
+En secuencias largas, la multiplicación repetida por `W_hh` en cada paso puede hacer que la norma del gradiente crezca exponencialmente (*gradient explosion*). La técnica de *gradient clipping* resuelve esto: si la norma total del gradiente supera un umbral `max_norm`, **reescala todos los gradientes proporcionalmente** para que su norma total sea exactamente `max_norm`. Esto estabiliza el entrenamiento sin alterar la dirección del gradiente.
+
+**¿Qué observarás durante el entrenamiento?**
+
+- La pérdida (*cross-entropy*) comenzará aproximadamente en **~0.69** (equivalente a predicción aleatoria con 2 clases: `log(2) ≈ 0.693`).
+- A medida que el optimizador SGD ajusta los pesos con BPTT, la pérdida descenderá de forma continua.
+- Después de **200 épocas**, la pérdida debería acercarse a **0.0**, indicando que la red ha memorizado la muestra de entrenamiento y asigna prácticamente toda la probabilidad a la clase correcta.
+
+> ⚠️ **Sin *gradient clipping***, en secuencias largas o con pesos mal inicializados, los gradientes pueden volverse `NaN` o `Inf` en pocas iteraciones, impidiendo completamente el aprendizaje. El *clipping* es especialmente importante en RNN entrenadas con BPTT.
+
+**Resultados esperados:**
+
+- La pérdida inicial será aproximadamente **~0.69**.
+- La curva de convergencia descenderá suavemente hasta valores cercanos a **0.0** al final de las 200 épocas.
+- Se guardará la figura `bptt_convergencia.png` con la curva de entrenamiento.
+- Si se activa el *clipping*, verás líneas de la forma `[Clipping] norma=X.XXX → escalado por 0.XXXX` indicando que se normalizaron los gradientes.
 
 ```python
 print("\n--- Backpropagation Through Time (BPTT) ---")
@@ -504,6 +567,40 @@ print("Figura guardada como 'bptt_convergencia.png'")
 ## 🔬 Parte 2: Problemas de Gradiente y LSTM (45 min)
 
 ### 2.1 Demostración del Gradiente que Desaparece
+
+El **problema del gradiente desvaneciente** (*vanishing gradient*) es la principal limitación de las RNN estándar y la razón directa por la que se inventaron las redes LSTM. Para entenderlo, analicemos qué ocurre cuando retropropagamos la señal de error a través de muchos pasos temporales.
+
+**Análisis matemático:**
+
+Al aplicar BPTT, el gradiente respecto al estado oculto `k` pasos atrás involucra el producto de `k` matrices Jacobianas:
+
+$$\frac{\partial h_t}{\partial h_{t-k}} = \prod_{i=1}^{k} \frac{\partial h_{t-i+1}}{\partial h_{t-i}} \approx W_{hh}^k$$
+
+El comportamiento de esta expresión depende completamente de la **norma espectral** de `W_hh` (su mayor valor singular `σ_1`):
+
+| Régimen | Condición | Consecuencia |
+|---|---|---|
+| **Desvaneciente** | `σ_1 < 1` *(‖W‖ < 1)* | `‖W^k‖ → 0` exponencialmente; la señal del pasado remoto es nula |
+| **Estable** | `σ_1 ≈ 1` *(‖W‖ ≈ 1)* | La norma del gradiente se mantiene constante; el aprendizaje es posible |
+| **Explosivo** | `σ_1 > 1` *(‖W‖ > 1)* | `‖W^k‖ → ∞` exponencialmente; los gradientes se vuelven `NaN` |
+
+En la práctica, los pesos se inicializan aleatoriamente y casi siempre caen en el régimen desvaneciente. Esto significa que **la RNN es incapaz de aprender dependencias que abarquen más de ~10 pasos temporales**: el gradiente que llega desde el paso `t=0` hasta el paso `t=50` es tan pequeño que el optimizador no puede ajustar los pesos con información de largo plazo.
+
+**¿Qué simulará el código?**
+
+La función `simular_flujo_gradiente` inicializa una matriz `W_hh` con tres normas espectrales diferentes (`0.5`, `1.0`, `1.5`) y calcula iterativamente `grad = grad @ W`, midiendo la norma del gradiente en cada paso. Esto reproduce fielmente el comportamiento de `W^k` sin necesidad de hacer un forward pass completo.
+
+La gráfica usará **escala logarítmica en el eje Y** para que las tres curvas sean visibles simultáneamente, ya que sus rangos de variación difieren en muchos órdenes de magnitud.
+
+**Resultados esperados:**
+
+- **Curva roja** *(escala=0.5, desvaneciente)*: la norma caerá de `1.0` a valores próximos a **`10⁻¹⁵`** o menores después de 50 pasos —prácticamente cero.
+- **Curva verde** *(escala=1.0, estable)*: la norma se mantendrá relativamente constante alrededor de **`1.0`** a lo largo de todos los pasos.
+- **Curva naranja** *(escala=1.5, explosivo)*: la norma crecerá hasta valores del orden de **`10⁶`** o superiores, representando una explosión de gradiente.
+- El análisis cuantitativo imprimirá el *ratio* `norma_final / norma_inicial` para cada caso, confirmando los órdenes de magnitud esperados.
+- Se guardará la figura `gradiente_desvaneciente.png`.
+
+> 💡 Este experimento explica por qué las LSTM fueron diseñadas con una **celda de memoria** y **puertas de olvido**: en lugar de multiplicar el gradiente por la misma matriz `W_hh` en cada paso, las LSTM permiten que el gradiente fluya hacia atrás casi sin atenuación a través de la *constant error carousel* (CEC).
 
 ```python
 print("=" * 60)
