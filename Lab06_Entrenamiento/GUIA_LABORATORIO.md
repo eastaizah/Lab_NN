@@ -179,6 +179,48 @@ El entrenamiento efectivo es crucial para:
 
 Empecemos con la estructura más simple:
 
+#### Fundamento Teórico: División de Datos y Normalización
+
+Antes de ejecutar cualquier entrenamiento, es imprescindible preparar los datos correctamente. La **división en conjuntos train/validación/test** obedece a un principio estadístico fundamental: medir la capacidad de generalización del modelo en datos que nunca ha visto. El conjunto de entrenamiento ajusta los parámetros internos (pesos y sesgos); el conjunto de validación nos guía para tomar decisiones de diseño (hiperparámetros, arquitectura, cuándo parar) sin contaminar la estimación final; y el conjunto de test proporciona una medida honesta e imparcial del rendimiento real del modelo sobre datos del mundo real. Usar datos de test durante el desarrollo equivale a "hacer trampa en el examen" y produce estimaciones de rendimiento optimistas que no se sostienen en producción.
+
+La distribución estándar **70% train / 15% val / 15% test** es un buen punto de partida para datasets de tamaño medio (miles de muestras). Para datasets muy grandes (millones de ejemplos) puede usarse una partición 98/1/1 porque incluso el 1% de test representa decenas de miles de muestras suficientes para estimaciones estadísticamente robustas. En datasets muy pequeños (cientos de muestras), se recomienda la **validación cruzada K-fold** en lugar de una sola división, porque maximiza el uso de los datos disponibles para entrenamiento y proporciona estimaciones más confiables del rendimiento.
+
+```
+División de datos:
+─────────────────────────────────────────────────────────────────
+Dataset completo (N muestras)
+         │
+         ├──► Train set (70%)  → Ajustar W, b por backpropagation
+         │
+         ├──► Validation set (15%) → Monitorear, early stopping,
+         │                           selección de hiperparámetros
+         │
+         └──► Test set (15%)   → Evaluación FINAL (solo una vez)
+─────────────────────────────────────────────────────────────────
+```
+
+La **normalización de características** (restar la media y dividir por la desviación estándar) es igualmente crítica. Cuando las características tienen escalas muy distintas —por ejemplo, una columna con valores en el rango [0, 1] y otra en [0, 10000]— los gradientes de los pesos asociados a la característica grande dominan la actualización, haciendo que el entrenamiento sea extremadamente lento o inestable. Con los datos normalizados, todas las características contribuyen de forma equilibrada a la función de pérdida, la superficie de error se vuelve más esférica y el descenso por gradiente converge con menos oscilaciones.
+
+```
+Sin normalización:           Con normalización (Z-score):
+  Pérdida                       Pérdida
+    │  zig-zag                    │  descenso suave
+    │ /\/\/\/\                    │ ╲
+    │/        \___                │  ╲___
+    └──────────► épocas           └──────────► épocas
+```
+
+**Importante:** la media y desviación estándar deben calcularse **sólo** sobre el conjunto de entrenamiento y luego aplicarse a validación y test; de lo contrario, estaríamos filtrando información futura al modelo (data leakage). La fórmula de normalización es:
+
+```
+X_normalizado = (X - μ_train) / (σ_train + ε)
+
+donde:
+  μ_train = media calculada en X_train
+  σ_train = desviación estándar calculada en X_train
+  ε = 1e-8  (evita división por cero)
+```
+
 ```python
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -206,6 +248,37 @@ X_test = (X_test - mean) / (std + 1e-8)
 ```
 
 **Simple Training Loop:**
+
+#### Fundamento Teórico: La Clase SimpleTrainer
+
+La clase `SimpleTrainer` encapsula el **loop de entrenamiento completo** siguiendo el ciclo de cuatro pasos que define el aprendizaje supervisado: *forward pass*, cálculo de pérdida, *backward pass* y actualización de parámetros. Comprender cada paso es fundamental antes de trabajar con frameworks de alto nivel como PyTorch o TensorFlow, que los abstraen automáticamente.
+
+```
+Loop de entrenamiento (una época):
+════════════════════════════════════════════════════════
+  X_train ──► [Forward Pass] ──► ŷ (predicciones)
+                                   │
+                               [Pérdida L]
+                               L = -mean(y·log(ŷ) + (1-y)·log(1-ŷ))
+                                   │
+                           [Backward Pass]
+                           ∂L/∂W₂, ∂L/∂b₂, ∂L/∂W₁, ∂L/∂b₁
+                                   │
+                         [Actualización GD]
+                         W ← W - η · ∂L/∂W
+                         b ← b - η · ∂L/∂b
+════════════════════════════════════════════════════════
+```
+
+En el **forward pass**, los datos de entrada se propagan capa por capa hasta producir una predicción; la función de pérdida (en este caso *Binary Cross-Entropy*) cuantifica el error asignando un escalar positivo que crece cuanto más se equivoca el modelo. El *backward pass* aplica la regla de la cadena para propagar el gradiente de la pérdida hacia atrás a través de cada capa, obteniendo `∂L/∂W` y `∂L/∂b` para cada conjunto de parámetros. La **regla de actualización** `W ← W − η·∂L/∂W` mueve cada peso en la dirección que reduce la pérdida, siendo `η` (learning rate) el hiperparámetro que controla el tamaño del paso.
+
+El hecho de que `SimpleTrainer` ejecute el paso completo con todos los datos a la vez por época se denomina **Batch Gradient Descent** puro. Es conceptualmente correcto pero ineficiente con datasets grandes —lo cual motiva la siguiente sección sobre mini-batches. Para este dataset de 1000 muestras, el comportamiento esperado es:
+
+- **Épocas 1-20:** Descenso rápido de la pérdida (fase de aprendizaje principal)
+- **Épocas 20-60:** Descenso más lento, convergencia gradual
+- **Épocas 60+:** Plateau, pequeñas oscilaciones alrededor del mínimo
+
+Si la pérdida no desciende en las primeras 10 épocas, el learning rate probablemente es demasiado pequeño (< 0.001) o demasiado grande (> 1.0) y está causando divergencia.
 
 ```python
 class SimpleTrainer:
@@ -289,6 +362,58 @@ class SimpleTrainer:
 ```
 
 ### 1.2 Procesamiento en Batches
+
+#### Fundamento Teórico: Tres Variantes de Descenso por Gradiente
+
+El procesamiento por batches no es un mero truco de eficiencia: tiene profundas implicaciones teóricas sobre la calidad del entrenamiento. Existen tres variantes principales del descenso por gradiente que se diferencian en cuántos ejemplos se usan para calcular el gradiente en cada actualización:
+
+**1. Batch Gradient Descent (GD puro, batch_size = N):**
+Usa el dataset completo en cada paso de actualización. El gradiente calculado es exacto (sin ruido estadístico), produciendo actualizaciones suaves. Sin embargo, es computacionalmente prohibitivo en datasets grandes, no cabe en memoria GPU con millones de ejemplos, y puede quedar atrapado en mínimos locales al no tener ruido que le ayude a escapar.
+
+```
+GD puro:
+Iteración 1: gradiente con 1000 muestras → W actualizado
+Iteración 2: gradiente con 1000 muestras → W actualizado
+...
+1 época = 1 actualización de parámetros
+```
+
+**2. Stochastic Gradient Descent (SGD, batch_size = 1):**
+Actualiza los parámetros tras procesar **un único ejemplo**. El gradiente es muy ruidoso (alta varianza), lo que paradójicamente actúa como **regularización implícita**: el ruido estocástico permite al optimizador escapar de mínimos locales poco profundos. El inconveniente es que la convergencia es errática y no aprovecha el paralelismo hardware.
+
+```
+SGD (batch=1):
+Iteración 1: gradiente con muestra[0] → W actualizado
+Iteración 2: gradiente con muestra[1] → W actualizado
+...
+1 época = 1000 actualizaciones de parámetros
+```
+
+**3. Mini-batch SGD (batch_size típico: 16–256):**
+Combina lo mejor de ambos mundos. Al calcular el gradiente sobre un subconjunto pequeño pero representativo, se reduce suficientemente el ruido para tener actualizaciones direccionalmente correctas, mientras se mantiene el beneficio regularizador del ruido estocástico. Los mini-batches aprovechan al máximo las operaciones matriciales vectorizadas de las GPU/CPU modernas.
+
+```
+Mini-batch SGD (batch=32):
+Iteración 1: gradiente con muestras[0:32]   → W actualizado
+Iteración 2: gradiente con muestras[32:64]  → W actualizado
+...
+Iteración 31: gradiente con muestras[992:1000] → W actualizado
+1 época = 32 actualizaciones de parámetros
+```
+
+**Comparación de las tres variantes:**
+
+| Propiedad | Batch GD | SGD (b=1) | Mini-batch SGD |
+|-----------|----------|-----------|----------------|
+| Varianza del gradiente | Nula (exacto) | Muy alta | Baja-moderada |
+| Velocidad por época | Lenta (1 update) | Rápida (N updates) | Balanceada |
+| Uso de memoria GPU | Muy alto | Mínimo | Configurable |
+| Regularización implícita | No | Sí (mucho ruido) | Sí (ruido moderado) |
+| Estándar en industria | Raro | Raro | **Sí** |
+
+**¿Por qué batch_size=32 es tan común?** La elección de 32 tiene raíces empíricas y prácticas: es suficientemente grande para aprovechar la paralelización hardware (múltiplo de potencias de 2), lo bastante pequeño para que el gradiente tenga varianza estocástica beneficiosa, y produce actualizaciones frecuentes que aceleran la convergencia. Investigaciones como las de Keskar et al. (2017) muestran que los batch sizes muy grandes tienden a converger a **mínimos planos** (con mejor generalización) mientras los muy pequeños pueden caer en **mínimos agudos** (menos robustos). Como regla práctica, empieza con 32 y ajusta según los recursos computacionales disponibles.
+
+El **shuffle aleatorio** antes de cada época es fundamental: asegura que cada mini-batch sea una muestra representativa del dataset completo, evitando que el modelo sobreajuste al orden de los datos.
 
 El procesamiento por batches es esencial para eficiencia:
 
@@ -392,7 +517,41 @@ class BatchTrainer:
 
 **Actividad 1.1:** Implementa el trainer y prueba con diferentes batch sizes (1, 16, 32, 128). ¿Qué observas?
 
+> **¿Qué debes observar y documentar?** Al variar el batch size notarás diferencias claras en la *suavidad* de las curvas de pérdida: con batch_size=1 la pérdida oscilará fuertemente época a época; con batch_size grande las curvas serán más suaves pero la convergencia inicial puede ser más lenta. Documenta el tiempo de entrenamiento por época para cada configuración y observa si los modelos con batch size pequeño alcanzan menor pérdida final (efecto regularizador del ruido). Reflexiona sobre el compromiso velocidad-estabilidad-calidad del modelo final.
+
 ### 1.3 Visualización del Entrenamiento
+
+#### Fundamento Teórico: Interpretación de Curvas de Aprendizaje
+
+Las **curvas de aprendizaje** son la herramienta de diagnóstico más poderosa durante el entrenamiento de redes neuronales. Representan cómo evoluciona la pérdida (y la exactitud) en los conjuntos de entrenamiento y validación a lo largo de las épocas, y su forma nos da información directa sobre el estado de salud del modelo.
+
+**Patrones de diagnóstico en las curvas de pérdida:**
+
+```
+BUEN AJUSTE:              OVERFITTING:              UNDERFITTING:
+ Pérdida                   Pérdida                   Pérdida
+   │ train───────────╮       │ train──────────╮         │ train──────────
+   │ val──────────╮  │       │              ╰╯ val       │ val────────────
+   │              ╰──╯       │ val↗ (diverge)           │ (ambas altas)
+   └─────────── épocas       └─────────── épocas        └─────────── épocas
+
+  Gap pequeño y estable    Gap creciente con épocas    Ambas curvas altas
+```
+
+**Overfitting (Sobreajuste):** Se diagnostica cuando la pérdida de entrenamiento continúa bajando mientras la pérdida de validación deja de mejorar o comienza a subir. El **gap** `val_loss − train_loss` es el indicador cuantitativo clave: un gap creciente con cada época es la firma digital del overfitting. Visualmente, las dos curvas se separan en forma de tijera. El modelo ha aprendido los patrones específicos del conjunto de entrenamiento (incluido el ruido) en lugar de las relaciones generalizables.
+
+| Gap | Diagnóstico | Acción recomendada |
+|-----|-------------|-------------------|
+| < 0.05 | Buen ajuste | Continuar o aumentar capacidad |
+| 0.05 – 0.15 | Ligero overfitting | Monitorear, considerar regularización |
+| > 0.15 | Overfitting severo | Aplicar L2/Dropout, early stopping |
+| Negativo | Underfitting | Aumentar capacidad o épocas |
+
+**Underfitting (Subajuste):** Tanto la pérdida de entrenamiento como la de validación permanecen altas. Las curvas están cerca entre sí (gap pequeño) pero en un nivel de pérdida elevado. Esto indica que el modelo carece de capacidad suficiente para capturar la complejidad del problema.
+
+**Buen ajuste:** Ambas curvas descienden juntas y se estabilizan en un nivel bajo, con un gap pequeño y estable. La curva de validación puede ser ligeramente superior a la de entrenamiento (es normal) pero no debería separarse de ella significativamente.
+
+**¿Por qué monitorear tanto pérdida como exactitud?** La pérdida guía directamente la optimización y detecta problemas sutiles que la exactitud puede ocultar: un modelo puede tener exactitud alta pero pérdida creciente si está sobreconfiado en sus predicciones incorrectas. La exactitud es más intuitiva para comunicar el rendimiento a no especialistas. Usar ambas métricas juntas proporciona una imagen completa del comportamiento del modelo. Si ambas métricas cuentan historias diferentes (alta exactitud pero pérdida creciente), la pérdida es el indicador más confiable del estado real del modelo.
 
 ```python
 import matplotlib.pyplot as plt
@@ -449,6 +608,57 @@ def plot_training_history(history):
 ### 2.1 Implementación de Early Stopping
 
 Early stopping previene overfitting deteniendo el entrenamiento cuando validation deja de mejorar:
+
+#### Fundamento Teórico: Early Stopping, Patience y Checkpointing
+
+El **early stopping** es quizás la técnica de regularización más elegante porque no modifica la arquitectura del modelo ni la función de pérdida: simplemente detiene el entrenamiento en el momento óptimo antes de que el modelo comience a memorizar el ruido de los datos de entrenamiento. Desde una perspectiva teórica, el entrenamiento sigue una trayectoria en el espacio de parámetros: en las primeras épocas el modelo aprende patrones genuinos (mejora en validación), pero a partir de cierto punto comienza a sobreajustar los ejemplos de entrenamiento individuales (validación empeora). El early stopping identifica ese punto de inflexión y "congela" el modelo en su mejor estado.
+
+```
+Comportamiento típico del entrenamiento con early stopping:
+
+  Val Loss
+    │
+    │\
+    │ \
+    │  \____
+    │       \___
+    │           \___
+    │               ╲___╱╲          ← punto de inflexión
+    │                    ╲___╱╲___  ← overfitting inicia aquí
+    │                ↑
+    │         MEJOR CHECKPOINT
+    └────────────────────────────── épocas
+    
+    [←─── patience ──→]
+         Sin mejora     → STOP y restaurar checkpoint
+```
+
+El parámetro **patience** define cuántas épocas consecutivas sin mejora en la validación se toleran antes de detener el entrenamiento. Un patience bajo (ej: 5) detiene el entrenamiento agresivamente y puede interrumpirlo en una meseta temporal antes de que el modelo retome su mejora; un patience alto (ej: 30) es más tolerante con la fluctuaciones pero puede resultar en más épocas de cómputo innecesarias. La elección depende de la suavidad esperada de las curvas: datasets ruidosos requieren patience mayor.
+
+| Patience | Ventaja | Desventaja | Cuándo usarlo |
+|----------|---------|------------|---------------|
+| 5-7 | Ahorra tiempo de cómputo | Puede detenerse en mesetas | Curvas muy suaves |
+| 10-15 | Balance equilibrado | Estándar recomendado | **Caso general** |
+| 20-30 | Explora más épocas | Mayor cómputo | Curvas con mesetas largas |
+
+El concepto de **min_delta** (mejora mínima para considerarse progreso) complementa al patience: en lugar de considerar "mejora" cualquier reducción por mínima que sea de la pérdida de validación, se exige que la reducción supere un umbral `δ`. Esto evita que pequeñas fluctuaciones numéricas retrasen el early stopping indefinidamente. Por ejemplo, si `min_delta=0.001`, una reducción de pérdida de 0.0001 no se contabiliza como mejora genuina.
+
+```
+Lógica de early stopping con min_delta:
+
+  nueva_val_loss < mejor_val_loss - min_delta?
+        │
+        ├── SÍ → Mejora genuina detectada
+        │         • Actualizar mejor_val_loss
+        │         • patience_counter = 0
+        │         • Guardar checkpoint
+        │
+        └── NO → Sin mejora suficiente
+                  • patience_counter += 1
+                  • Si patience_counter >= patience: STOP y restaurar
+```
+
+El **checkpointing** (guardado del mejor modelo) es inseparable del early stopping: como el entrenamiento se detiene sólo después de `patience` épocas sin mejora, el último estado del modelo NO es el mejor. El checkpoint restaura los pesos correspondientes a la época con menor pérdida de validación, garantizando que se usa el modelo en su punto óptimo de generalización y no el modelo "degradado" por las últimas épocas de sobreajuste. En sistemas de producción, los checkpoints también protegen contra interrupciones inesperadas del entrenamiento (fallas de hardware, cortes de luz).
 
 ```python
 class TrainerWithEarlyStopping:
@@ -598,9 +808,60 @@ class TrainerWithEarlyStopping:
 
 **Actividad 2.1:** Experimenta con diferentes valores de patience (5, 10, 20). ¿Cómo afecta al entrenamiento?
 
+> **¿Qué debes observar y documentar?** Registra en qué época se detiene el entrenamiento para cada valor de patience y cuál es la pérdida de validación del checkpoint restaurado. Con patience=5 probablemente el entrenamiento se detenga prematuramente durante una meseta temporal; con patience=20 puede completar más épocas pero también gastar más tiempo de cómputo. Compara las pérdidas finales en el conjunto de **test** (no validación) de los tres modelos para evaluar cuál generaliza mejor. Esto ilustra el tradeoff entre detención temprana y exploración suficiente del espacio de soluciones.
+
 ## 🔬 Parte 3: Regularización y Técnicas Avanzadas (50 min)
 
 ### 3.1 Regularización L2 (Weight Decay)
+
+#### Fundamento Teórico: Regularización como Penalización de Complejidad
+
+La **regularización** es el conjunto de técnicas que previene el overfitting imponiendo restricciones sobre la complejidad del modelo. Matemáticamente, modifica la función de pérdida añadiendo un **término de penalización** que crece cuando los pesos del modelo toman valores muy grandes:
+
+```
+L_total = L_datos + λ · Ω(W)
+
+donde:
+  L_datos = pérdida original (ej: cross-entropy, MSE)
+  Ω(W)    = penalización sobre los pesos del modelo
+  λ       = hiperparámetro que balancea ambos términos
+```
+
+La **regularización L2** (*Ridge* o *weight decay*) usa `Ω(W) = ½ · Σ(Wᵢ²)`, la suma de los cuadrados de todos los pesos. Su gradiente `∂Ω/∂W = W` modifica la regla de actualización a:
+
+```
+W ← W - η · ∂L_datos/∂W - η · λ · W
+W ← W · (1 - η·λ) - η · ∂L_datos/∂W
+         ↑
+     "weight decay": factor < 1 que reduce W en cada paso
+```
+
+Este factor `(1 − η·λ) < 1` es exactamente el "decaimiento" del peso en cada paso, de ahí el nombre *weight decay*. El efecto es que los pesos tienen una presión constante hacia cero, produciendo soluciones más **suaves y distribuidas** donde ningún peso individual domina las predicciones.
+
+La **regularización L1** (*Lasso*) usa `Ω(W) = Σ|Wᵢ|`. Su gradiente es `λ·sign(W)`, que empuja los pesos exactamente a cero para los menos relevantes. Esto produce soluciones **dispersas (sparse)**: muchos pesos quedan en exactamente cero, equivalente a selección automática de características.
+
+**Comparación L1 vs L2:**
+
+| Propiedad | L1 (Lasso) | L2 (Ridge / Weight Decay) |
+|-----------|-----------|--------------------------|
+| Fórmula | λ·Σ\|W\| | λ/2·Σ(W²) |
+| Tipo de solución | Dispersa (muchos ceros) | Densa (pesos pequeños) |
+| Selección de features | **Sí** (implícita) | No |
+| Diferenciable en W=0 | No (problema numérico) | Sí |
+| Uso típico | Feature selection | **Regularización general** |
+
+**Cómo elegir lambda:** Un `λ` muy pequeño no penaliza suficientemente y el overfitting persiste; un `λ` muy grande fuerza todos los pesos a cero y el modelo pierde capacidad expresiva (underfitting). La práctica estándar es búsqueda en escala logarítmica:
+
+```
+Valores típicos a evaluar: λ ∈ {0.1, 0.01, 0.001, 0.0001}
+
+λ = 0.1    → Regularización fuerte, riesgo de underfitting
+λ = 0.01   → Regularización moderada (buen punto de inicio)
+λ = 0.001  → Regularización suave
+λ = 0.0001 → Regularización muy suave
+```
+
+El valor óptimo se selecciona usando validación cruzada: el que maximiza el rendimiento en validación sin degradar el de entrenamiento de forma significativa.
 
 ```python
 class TrainerWithL2:
@@ -682,6 +943,61 @@ class TrainerWithL2:
 ```
 
 ### 3.2 Learning Rate Scheduling
+
+#### Fundamento Teórico: Adaptación Dinámica del Paso de Aprendizaje
+
+Un **learning rate fijo** es subóptimo durante todo el proceso de entrenamiento por razones geométricas claras: en las primeras épocas, el modelo está lejos del óptimo y un learning rate grande acelera la convergencia; pero en las épocas finales, cuando el modelo se acerca al óptimo, ese mismo learning rate grande hace que los parámetros "salten" alrededor del mínimo sin poder asentarse en él. Es el equivalente a intentar enroscar un tornillo con el destornillador a máxima potencia: rápido al principio pero impreciso al final. El **learning rate scheduling** resuelve esto reduciendo gradualmente la tasa de aprendizaje a medida que avanza el entrenamiento.
+
+```
+Problema del LR fijo:               Solución con LR scheduling:
+
+  Pérdida                             Pérdida
+    │  \                                │  \
+    │   \                               │   \
+    │    \     LR grande                │    \___
+    │     ╲╱╲╱╲╱╲╱── oscilación         │        ╲___ LR reducido
+    │                                   │             ╲___
+    └─────────── épocas                 └─────────── épocas
+```
+
+Las tres estrategias de scheduling más usadas tienen comportamientos distintos:
+
+**Step Decay:**
+```
+lr(t) = lr₀ × factor^(época // épocas_por_paso)
+
+Ejemplo: lr₀=0.1, factor=0.5, épocas_por_paso=10
+  Época 0-9:   lr = 0.1
+  Época 10-19: lr = 0.05
+  Época 20-29: lr = 0.025
+```
+Produce una curva de pérdida en escalones descendentes. Ideal cuando se sabe cuántas épocas necesita el modelo.
+
+**Exponential Decay:** `lr(t) = lr₀ · rᵗ` donde `r < 1` (ej: r=0.95). La reducción es continua y suave. El LR decrece siempre, incluso si el modelo sigue mejorando, lo que puede ser una limitación.
+
+**Reduce on Plateau:** Sólo reduce el LR cuando la pérdida de validación deja de mejorar durante `patience` épocas. Es el más adaptativo y es el **estándar recomendado** para la mayoría de problemas.
+
+| Estrategia | Tipo | Ventaja principal | Limitación |
+|------------|------|-------------------|------------|
+| Step Decay | Manual | Predecible, fácil de depurar | Requiere configurar cuándo bajar |
+| Exponential | Automático | Transición suave continua | LR baja siempre, incluso si mejora |
+| **Plateau** | Adaptativo | Se adapta al problema | **Recomendado en práctica** |
+
+El **learning rate warmup** (calentamiento) es una técnica complementaria usada en modelos grandes (Transformers, BERT): el LR empieza muy pequeño, aumenta linealmente durante las primeras épocas hasta el valor objetivo, y luego disminuye. El warmup estabiliza el entrenamiento en las primeras iteraciones cuando los pesos están aún muy alejados del óptimo y los gradientes son grandes e inestables.
+
+```
+LR con warmup + cosine annealing (estándar en Transformers):
+
+  LR
+  │        ╱╲
+  │       ╱  ╲___
+  │      ╱       ╲___
+  │    ╱              ╲___
+  │  ╱ (warmup)            ╲___ (decay)
+  └────────────────────────── épocas
+```
+
+Los **Cyclical Learning Rates** (CLR, Smith 2017) proponen una idea contraintuitiva: en lugar de sólo decrecer, el LR oscila entre un mínimo y un máximo en ciclos. La intuición es que los aumentos periódicos del LR ayudan al modelo a "saltar" de mínimos locales hacia mejores regiones del espacio de pérdida, logrando mejores soluciones finales que el scheduling monotónicamente decreciente.
 
 ```python
 class TrainerWithLRSchedule:
@@ -844,9 +1160,62 @@ def plot_lr_schedule(history):
 
 **Actividad 3.1:** Compara los tres tipos de scheduling. ¿Cuál converge más rápido?
 
+> **¿Qué debes observar y documentar?** Ejecuta el mismo modelo con los tres tipos de scheduling (step, exponential, plateau) usando el mismo learning rate inicial y el mismo número máximo de épocas. Grafica la evolución del LR junto a las curvas de pérdida para visualizar la correlación entre los cambios de LR y las mejoras en la pérdida. Analiza: ¿qué estrategia alcanza la pérdida mínima primero? ¿Cuál produce la menor pérdida de validación final? ¿Cuál es más robusta a la elección inicial del LR? Documenta tus conclusiones con evidencia cuantitativa de los experimentos.
+
 ## 🔬 Parte 4: Monitoreo y Debugging (35 min)
 
 ### 4.1 Dashboard de Monitoreo
+
+#### Fundamento Teórico: Métricas Clave y Diagnóstico en Tiempo Real
+
+El **monitoreo activo** durante el entrenamiento es lo que diferencia un experimento de ML bien conducido de un simple script que se ejecuta a ciegas. Un dashboard de métricas permite detectar problemas a tiempo y tomar decisiones informadas: ajustar el LR, aumentar la regularización, ampliar la capacidad del modelo o detener el experimento por completo.
+
+**¿Qué métricas son más importantes?**
+
+| Métrica | Panel | Qué indica |
+|---------|-------|-----------|
+| `val_loss` | Curva de pérdida | Señal de optimización más sensible |
+| `val_acc` | Curva de accuracy | Rendimiento interpretable |
+| `val_loss - train_loss` | Gap de generalización | Indicador directo de overfitting |
+| `learning_rate` | LR schedule | Verificar que el scheduler funciona |
+| `epoch_time` | Tiempo por época | Detectar cuellos de botella |
+
+**Interpretación del gap de generalización a lo largo del tiempo:**
+
+```
+Gap = val_loss - train_loss
+
+  Gap
+  │    /
+  │   /  ← creciente: overfitting progresivo
+  │  /
+  │ /
+  │──── estable: equilibrio saludable
+  │
+  └────────────── épocas
+
+Señales de alarma:
+• Gap > 0.15 y creciente → overfitting severo
+• Gap oscilante fuertemente → batch size muy pequeño
+• Gap < 0 → el modelo puede necesitar más capacidad
+```
+
+**Señales de desvanecimiento de gradiente (Vanishing Gradient):** Si la pérdida de entrenamiento deja de disminuir desde las primeras épocas (se "congela" en un valor alto), puede indicar que los gradientes se vuelven cero o infinitesimalmente pequeños en las capas profundas. La solución es revisar las funciones de activación (ReLU en lugar de sigmoid/tanh en capas ocultas), la inicialización de pesos (Xavier/He), o añadir *batch normalization*.
+
+```
+Síntomas de problemas comunes durante el entrenamiento:
+
+Problema               │ Síntoma en dashboard             │ Acción
+───────────────────────┼──────────────────────────────────┼─────────────────
+LR muy alto            │ Pérdida explota o oscila mucho   │ Reducir LR ÷10
+LR muy bajo            │ Pérdida no baja en 20+ épocas    │ Aumentar LR ×10
+Vanishing gradient     │ Pérdida se congela (no baja)     │ Cambiar activación
+Overfitting            │ Gap > 0.15 y creciente           │ L2, Dropout, Early stop
+Underfitting           │ Ambas pérdidas altas             │ Más épocas o modelo mayor
+Data leakage           │ Val < Train (val mejor que train)│ Revisar preprocesamiento
+```
+
+**¿Cuándo intervenir?** Interrumpe el entrenamiento si: (1) la pérdida de entrenamiento no disminuye en las primeras 20 épocas (posible problema de LR o inicialización); (2) el gap de generalización supera 0.2 y sigue creciendo (overfitting severo); (3) la pérdida explota a NaN o infinito (LR demasiado grande o problema numérico). En todos estos casos, intervenir temprano ahorra tiempo de cómputo y permite corregir la configuración.
 
 ```python
 class TrainingMonitor:
@@ -1033,9 +1402,44 @@ class TrainingMonitor:
 
 **Actividad 4.1:** Usa el monitor para entrenar un modelo y analiza el dashboard completo.
 
+> **¿Qué debes observar y documentar?** Analiza los seis paneles del dashboard sistemáticamente: (1) en las curvas de pérdida, identifica en qué época el modelo alcanza su mejor rendimiento de validación; (2) en las curvas de exactitud, verifica que la exactitud de validación no empieza a degradarse mientras la de entrenamiento sigue subiendo; (3) en el panel de LR, confirma que el scheduler opera como se diseñó; (4) en el gap de generalización, observa si es creciente (overfitting), decreciente (el modelo aún puede aprender) o estable (equilibrio); (5) en el tiempo por época, comprueba que no hay variaciones inesperadas. Escribe un párrafo de diagnóstico usando el vocabulario técnico aprendido: overfitting, underfitting, convergencia, generalización.
+
 ## 📊 Análisis Final de Rendimiento
 
 ### Experimento Completo: Comparación de Técnicas
+
+#### Fundamento Teórico: Experimentación Controlada en Machine Learning
+
+Un **experimento controlado** en ML sigue los mismos principios del método científico: se varía **una sola variable independiente** a la vez (la técnica de entrenamiento) manteniendo todo lo demás constante (arquitectura del modelo, dataset, semilla aleatoria, número de épocas). La función `run_experiment` implementa exactamente este diseño: crea un modelo fresco con la misma arquitectura e inicialización en cada experimento, garantizando que las diferencias en resultados se deben exclusivamente a la técnica evaluada.
+
+```
+Diseño de experimento controlado:
+
+Variable controlada: técnica de entrenamiento
+Variables fijas: arquitectura, datos, semilla aleatoria
+
+  Experimento 1: Baseline (SGD simple)        ─┐
+  Experimento 2: + Mini-batches (batch=32)     ├── Misma arquitectura
+  Experimento 3: + Early stopping              ├── Mismo dataset
+  Experimento 4: + Regularización L2           ├── Misma semilla aleatoria
+  Experimento 5: + LR scheduling               ─┘
+
+  Comparar en: val_acc, val_loss, gap, tiempo
+```
+
+**¿Por qué comparar múltiples configuraciones?** Ninguna técnica es universalmente superior: la efectividad del early stopping, la regularización L2 y el LR scheduling depende del dataset específico, la arquitectura, y el nivel de ruido de los datos. Comparar sistemáticamente permite: (a) cuantificar el beneficio marginal de cada técnica en el problema concreto, (b) identificar si técnicas adicionales generan mejora o complejidad innecesaria, y (c) desarrollar intuición sobre qué técnicas funcionan mejor en qué contextos.
+
+**Cómo extraer conclusiones válidas:**
+
+| Principio | Descripción |
+|-----------|-------------|
+| Una variable a la vez | Solo cambiar la técnica, no la arquitectura |
+| Múltiples semillas | Repetir 3-5 veces para estimar varianza |
+| Evaluar en test set | Nunca en validación para comparar |
+| Reportar media ± std | No solo el mejor resultado obtenido |
+| Contexto importa | Una técnica puede ganar en un dataset y perder en otro |
+
+Para que las comparaciones sean estadísticamente significativas, es buena práctica repetir cada experimento con múltiples semillas aleatorias y reportar la media ± desviación estándar del rendimiento. Un único experimento puede dar resultados favorables o desfavorables por puro azar. Además, la comparación debe hacerse siempre en el conjunto de **test** (nunca en validación), y todas las decisiones de diseño deben haberse tomado sin consultar el test set.
 
 ```python
 import time
