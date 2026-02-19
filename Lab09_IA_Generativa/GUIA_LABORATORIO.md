@@ -1596,6 +1596,15 @@ entrenar_gan_conceptual(generator, discriminator, real_images)
 
 ### 3.6 Problemas Comunes en GANs
 
+El entrenamiento de GANs es notoriamente inestable. A diferencia de las redes convencionales donde minimizamos una función de pérdida bien definida, en los GANs resolvemos un **juego minimax de dos jugadores** cuyo punto de equilibrio (equilibrio de Nash) es difícil de alcanzar mediante descenso de gradiente estocástico. Los cuatro problemas principales son:
+
+- **Mode Collapse**: El generador "colapsa" a producir solo unas pocas variaciones muy similares, ignorando la diversidad real de los datos. Matemáticamente, G encuentra un punto z* que maximiza D(G(z)) de forma tan efectiva que ya no necesita explorar otros modos de la distribución.
+- **Vanishing Gradients**: Si el discriminador se vuelve demasiado bueno demasiado rápido, las predicciones para las imágenes falsas convergen a 0, causando que log(D(G(z))) → -∞ y los gradientes para G se desvanezcan.
+- **Inestabilidad**: Las pérdidas de D y G oscilan violentamente en lugar de converger. Ocurre cuando el balance entre ambas redes se rompe.
+- **Convergencia Lenta**: Los GANs pueden requerir miles de épocas para producir resultados de calidad aceptable, especialmente en imágenes de alta resolución.
+
+**¿Cómo detectar estos problemas en la práctica?** Monitorea simultáneamente las curvas de pérdida de D y G: si `D_loss → 0` mientras `G_loss → ∞`, hay vanishing gradients; si las muestras generadas siempre se parecen entre sí, hay mode collapse; si ambas pérdidas oscilan sin patrón claro, hay inestabilidad.
+
 ```python
 def demostrar_problemas_gan():
     """
@@ -1649,6 +1658,14 @@ demostrar_problemas_gan()
 
 ### 3.7 Visualización de Progreso
 
+Monitorear el progreso visual del generador durante el entrenamiento es esencial para diagnosticar problemas tempranamente. Las **curvas de pérdida numéricas** por sí solas no son suficientes en GANs: una pérdida de G que baja no siempre significa mejor calidad visual, ya que el generador podría estar explotando debilidades del discriminador. Por eso, la práctica estándar consiste en guardar una **cuadrícula de imágenes generadas** a intervalos regulares (p.ej., cada 10 épocas) usando siempre el **mismo vector de ruido fijo z₀**, lo que permite comparar directamente cómo evolucionan las mismas semillas a lo largo del tiempo.
+
+**¿Qué buscar en la visualización?**
+- *Épocas iniciales*: Ruido o patrones sin sentido — completamente normal.
+- *Épocas intermedias*: Formas borrosas que empiezan a recordar los datos reales.
+- *Épocas avanzadas*: Imágenes nítidas y diversas — señal de entrenamiento exitoso.
+- *Señal de alerta*: Si todas las imágenes en la cuadrícula son idénticas o muy similares, hay mode collapse.
+
 ```python
 def visualizar_progreso_gan():
     """
@@ -1701,6 +1718,10 @@ visualizar_progreso_gan()
 ```
 
 ### 3.8 Estrategias de Entrenamiento
+
+Dado que los GANs son inherentemente inestables, la comunidad investigadora ha desarrollado un conjunto de **mejores prácticas empíricas** que mejoran significativamente la probabilidad de un entrenamiento exitoso. Estas estrategias no están garantizadas matemáticamente — son recetas destiladas de miles de experimentos fallidos y exitosos. La comprensión del *por qué* funciona cada técnica es tan importante como saber aplicarla.
+
+**Marco conceptual**: El objetivo es mantener un balance dinámico donde el discriminador sea "suficientemente bueno" para dar señales de gradiente útiles al generador, pero no tan bueno que las señales se desvanezcan. Las estrategias que se presentan a continuación atacan este problema desde diferentes ángulos: regularización de etiquetas, control de velocidad de aprendizaje, normalización de activaciones y estabilización arquitectónica.
 
 ```python
 def estrategias_entrenamiento_gan():
@@ -1956,7 +1977,24 @@ Discriminador:
 
 ### Métricas para Modelos Generativos
 
+Evaluar la calidad de un modelo generativo es fundamentalmente más difícil que evaluar un modelo discriminativo. En clasificación, la precisión o el F1-score miden directamente cuántos ejemplos clasifica bien el modelo. En cambio, para modelos generativos necesitamos responder preguntas más ambiguas: **¿Las imágenes generadas son realistas?** **¿Son diversas o el modelo sufre mode collapse?** **¿La distribución generada es similar a la distribución real?**
+
+No existe una única métrica perfecta — cada una captura un aspecto diferente de la calidad generativa. Por eso, en la práctica se usan varias métricas en conjunto para obtener una evaluación holística.
+
+---
+
 **1. Inception Score (IS)**:
+
+> **¿Qué mide?** El IS evalúa simultáneamente dos propiedades deseables de un generador: **calidad** (las imágenes generadas deben parecerse a imágenes reales de una clase específica) y **diversidad** (el modelo debe generar imágenes de muchas clases diferentes, no colapsar en unas pocas).
+>
+> **¿Por qué se desarrolló?** Antes del IS (Salimans et al., 2016), la evaluación de GANs era casi enteramente subjetiva (evaluación humana). Se necesitaba una métrica automática y reproducible. El IS aprovecha un clasificador de ImageNet pre-entrenado (Inception v3) para medir cuán "reconocibles" son las imágenes generadas.
+>
+> **Fórmula conceptual**: `IS = exp(E[KL(p(y|x) || p(y))])`, donde `p(y|x)` es la distribución de clases para una imagen generada específica (debe ser de alta confianza / peaky) y `p(y)` es la distribución marginal sobre todas las imágenes generadas (debe ser uniforme / diversa).
+>
+> **¿Cómo interpretar?** Valores más altos son mejores. Para referencia: modelos aleatorios obtienen ~1.0, MNIST entrenado bien ~9-10, modelos de ImageNet ~300+. El IS > 5 para datos simples como MNIST indica buena calidad.
+>
+> **Limitaciones críticas**: El IS no compara directamente con imágenes reales — un modelo que memorice el dataset de entrenamiento obtendría un IS alto sin ser verdaderamente generativo. También es sensible al dataset usado para pre-entrenar el clasificador Inception.
+
 ```python
 def inception_score(generated_images, n_splits=10):
     """
@@ -1973,6 +2011,17 @@ def inception_score(generated_images, n_splits=10):
 ```
 
 **2. Fréchet Inception Distance (FID)**:
+
+> **¿Qué mide?** El FID (Heusel et al., 2017) mide la **distancia entre la distribución de imágenes reales y la distribución de imágenes generadas**. A diferencia del IS, el FID sí compara directamente las imágenes generadas con las reales, lo que lo convierte en una métrica más robusta y confiable.
+>
+> **¿Por qué se desarrolló?** El IS tenía un problema fundamental: podía dar puntuaciones altas incluso cuando el generador producía imágenes poco realistas o con artefactos, siempre que fueran clasificables. El FID corrige esto comparando las **características de alto nivel** (extraídas por Inception v3) de las imágenes reales vs. generadas, usando la **distancia de Fréchet** (también llamada distancia de Wasserstein-2) entre dos distribuciones gaussianas multivariadas.
+>
+> **Fórmula**: `FID = ||μ_r - μ_g||² + Tr(Σ_r + Σ_g - 2√(Σ_r·Σ_g))`, donde `μ_r, Σ_r` son la media y covarianza de las características reales, y `μ_g, Σ_g` las de las generadas.
+>
+> **¿Cómo interpretar?** Valores **más bajos** son mejores. FID = 0 significa distribuciones idénticas (imposible en práctica). Guía orientativa: FID < 10 = excelente, FID 10-50 = bueno, FID 50-200 = aceptable, FID > 200 = modelo deficiente.
+>
+> **Limitaciones**: El FID requiere **al menos 10,000 imágenes** para ser estadísticamente confiable — con muestras pequeñas el estimador tiene alta varianza. También hereda el sesgo del clasificador Inception pre-entrenado en ImageNet.
+
 ```python
 def frechet_inception_distance(real_images, fake_images):
     """
@@ -1989,6 +2038,15 @@ def frechet_inception_distance(real_images, fake_images):
 ```
 
 **3. Reconstruction Error (VAE)**:
+
+> **¿Qué mide?** El error de reconstrucción cuantifica **cuán fielmente el VAE puede reproducir sus entradas** después de pasar por el cuello de botella del espacio latente. Es la componente "reconstrucción" de la función ELBO que el VAE optimiza durante el entrenamiento.
+>
+> **¿Por qué es importante?** Un VAE con error de reconstrucción bajo ha aprendido una representación comprimida que preserva la información esencial de los datos. Sin embargo, un error de reconstrucción demasiado bajo puede indicar que el modelo está memorizando en lugar de generalizar (espacio latente sobreajustado), especialmente si el término KL divergencia es muy pequeño.
+>
+> **¿Cómo interpretar el MSE?** El MSE depende del rango de los datos. Para imágenes normalizadas a [0,1]: MSE < 0.01 = excelente reconstrucción, MSE 0.01-0.05 = buena, MSE > 0.1 = imágenes notablemente borrosas. Siempre acompaña el número con una visualización — el MSE numérico no reemplaza la inspección visual.
+>
+> **Limitaciones**: El MSE es un proxy imperfecto de la calidad perceptual. Dos imágenes pueden tener el mismo MSE pero una verse mucho más natural que la otra. Por esta razón se complementa con métricas perceptuales como SSIM (Structural Similarity Index).
+
 ```python
 def evaluate_reconstruction(vae, test_images):
     """
@@ -2004,6 +2062,17 @@ print(f"MSE de reconstrucción: {mse:.4f}")
 ```
 
 **4. Latent Space Quality**:
+
+> **¿Qué mide?** Esta métrica evalúa la **organización y estructura del espacio latente** del VAE. Un buen espacio latente tiene dos propiedades: (a) **separabilidad** — los puntos de clases distintas están agrupados en regiones separadas, y (b) **suavidad** — puntos vecinos en el espacio latente generan salidas similares (garantiza interpolaciones coherentes).
+>
+> **El Silhouette Score** mide la calidad del clustering en el espacio latente. Para cada punto `i`, calcula `s(i) = (b(i) - a(i)) / max(a(i), b(i))`, donde `a(i)` es la distancia promedio a los demás puntos de su misma clase (cohesión) y `b(i)` es la distancia promedio al cluster más cercano de otra clase (separación).
+>
+> **¿Cómo interpretar el Silhouette Score?** El rango es [-1, 1]. Valores cercanos a +1 indican clusters bien separados. Valores cercanos a 0 indican clusters solapados. Valores negativos indican que los puntos están en el cluster incorrecto. Para espacios latentes de VAEs: Score > 0.5 = buena separación, 0.2-0.5 = separación moderada, < 0.2 = espacio latente desorganizado.
+>
+> **¿Por qué importa la calidad del espacio latente?** Un espacio latente bien organizado permite: (1) generación controlada — muestrear de una región específica produce una clase específica, (2) interpolaciones coherentes — el camino entre dos puntos pasa por estados intermedios válidos, y (3) transferencia de atributos entre muestras.
+>
+> **Limitaciones**: El Silhouette Score requiere etiquetas de clase, que en generación no supervisada no siempre están disponibles. Además, mide separabilidad lineal, pero el espacio latente puede tener estructuras no lineales igualmente útiles.
+
 ```python
 def evaluate_latent_space(vae, X, y):
     """
@@ -2024,6 +2093,17 @@ def evaluate_latent_space(vae, X, y):
 ```
 
 **5. Mode Coverage (GAN)**:
+
+> **¿Qué mide?** El Mode Coverage cuantifica **cuántos "modos" (clases o variaciones) de la distribución real está capturando el generador**. Es la métrica directa para detectar mode collapse. En un dataset de dígitos MNIST con 10 clases, un generador ideal debería producir los 10 dígitos con frecuencias similares. Un generador con mode collapse podría producir solo 2 o 3 dígitos repetidamente.
+>
+> **¿Por qué se desarrolló?** Tanto el IS como el FID son métricas globales que pueden enmascarar mode collapse si las muestras que sí genera el modelo son de muy alta calidad. El Mode Coverage proporciona una evaluación directa de la diversidad del generador.
+>
+> **¿Cómo interpretar?** Para MNIST (10 clases): 10/10 clases = excelente diversidad, 7-9/10 = aceptable, <7/10 = mode collapse moderado, <5/10 = mode collapse severo. Más allá del conteo de clases, analiza también la **distribución** — ¿genera el 10% de cada clase (uniforme) o el 80% de una sola clase (colapso)?
+>
+> **Detección práctica sin clasificador**: Si no tienes un clasificador pre-entrenado, puedes detectar mode collapse calculando la **varianza de los píxeles** entre muestras generadas. Varianza muy baja (< 0.01) indica que las muestras son muy similares entre sí — señal clara de colapso.
+>
+> **Limitaciones**: Esta métrica requiere un clasificador pre-entrenado de buena calidad y solo mide diversidad a nivel de clase, no diversidad **intra-clase** (variaciones dentro de la misma clase). Para una evaluación más completa, combinarla con el FID.
+
 ```python
 def evaluate_mode_coverage(gan, n_samples=1000):
     """
@@ -2047,6 +2127,18 @@ def evaluate_mode_coverage(gan, n_samples=1000):
 ```
 
 ### Visualizaciones de Análisis
+
+Las visualizaciones son el complemento indispensable de las métricas numéricas. Mientras que IS, FID y otros scores comprimen la calidad en un solo número, las visualizaciones revelan **por qué** el modelo falla o tiene éxito. La función `analisis_completo_vae` produce cuatro vistas complementarias del modelo:
+
+1. **Cuadrícula Originales vs. Reconstrucciones** (`vae_analysis_reconstruction.png`): Muestra en paralelo las imágenes de entrada y sus reconstrucciones. *Qué buscar*: ¿Las reconstrucciones preservan la estructura global (forma del dígito)? ¿Conservan los detalles finos (grosor del trazo)? Reconstrucciones borrosas pero estructuralmente correctas indican un modelo bien regularizado; borrosas y distorsionadas indican subentrenamiento.
+
+2. **Espacio Latente 2D** (`vae_analysis_latent.png`): Proyecta todas las representaciones latentes μ en 2D, coloreadas por clase. *Qué buscar*: ¿Hay clusters bien separados por color? ¿Los clusters se solapan o están claramente delimitados? ¿Hay regiones vacías entre clusters (el prior N(0,1) no debería permitirlas)? Este gráfico diagnostica directamente la calidad del regularizador KL.
+
+3. **Cuadrícula de Generaciones** (`vae_analysis_generated.png`): Muestra muestras generadas desde z ~ N(0,1). *Qué buscar*: ¿Las imágenes se parecen a datos reales? ¿Son diversas (diferentes dígitos/estilos) o todas parecidas (mode collapse)? ¿Hay artefactos extraños o píxeles saturados?
+
+4. **Reporte de Métricas**: Resume cuantitativamente lo que las visualizaciones muestran cualitativamente.
+
+**Flujo de diagnóstico recomendado**: Empieza siempre por la cuadrícula de reconstrucciones para verificar que el modelo "entiende" los datos. Luego revisa el espacio latente para verificar la regularización. Finalmente evalúa las generaciones para verificar la capacidad creativa del modelo.
 
 ```python
 def analisis_completo_vae(vae, X_test, y_test):
@@ -2109,6 +2201,98 @@ def analisis_completo_vae(vae, X_test, y_test):
     print(f"   Silhouette Score: {silhouette:.4f}")
     print(f"   Conclusión: {'Buen modelo' if mse < 0.1 and silhouette > 0.3 else 'Necesita mejoras'}")
 ```
+
+---
+
+### 🔍 Análisis de Rendimiento
+
+Una vez entrenado tu modelo y obtenidas las métricas y visualizaciones, el paso crítico es **interpretar los resultados** para tomar decisiones informadas sobre cómo mejorar el modelo. Esta sección te guía sobre qué buscar y cómo actuar.
+
+#### Guía de Interpretación para VAEs
+
+| Síntoma observado | Diagnóstico probable | Acción correctiva |
+|---|---|---|
+| MSE de reconstrucción alto + imágenes borrosas | Capacidad insuficiente (underfitting) | Aumentar `hidden_dim` o añadir capas al encoder/decoder |
+| MSE bajo pero imágenes generadas sin sentido | KL divergencia dominando demasiado (β muy alto) | Reducir β o usar β-annealing (empezar con β=0 e incrementar gradualmente) |
+| Espacio latente con clusters solapados | KL regularización insuficiente (β muy bajo) | Aumentar β o entrenamiento más prolongado |
+| Reconstrucciones buenas pero generaciones pobres | Posterior collapse: el decoder ignora z | Reducir `latent_dim`, añadir KL annealing |
+| MSE muy bajo en train pero alto en test | Sobreajuste | Añadir regularización (dropout), reducir capacidad |
+
+**Proceso de análisis paso a paso para VAE**:
+```
+1. Verifica convergencia: ¿La pérdida total disminuye monotónicamente?
+   → Si oscila violentamente: reduce learning rate
+   → Si no baja en absoluto: revisa la arquitectura y la inicialización
+
+2. Analiza el balance KL vs. Reconstrucción:
+   → Si KL_loss ≈ 0 desde el inicio: posterior collapse (decoder no usa z)
+   → Si KL_loss domina totalmente: imágenes borrosas, aumentar β pequeño
+
+3. Inspecciona reconstrucciones visualmente:
+   → ¿Reconoces los dígitos? Si no: subentrenamiento
+   → ¿Demasiado perfectas? Quizás sobreajuste o β muy bajo
+
+4. Evalúa el espacio latente:
+   → Silhouette Score > 0.3: separación aceptable
+   → Proyección 2D con clusters claros: buen regularizador
+
+5. Prueba la generación:
+   → Muestrea z ~ N(0,1) y decodifica
+   → ¿Las imágenes son reconocibles y diversas?
+```
+
+#### Guía de Interpretación para GANs
+
+| Síntoma observado | Diagnóstico probable | Acción correctiva |
+|---|---|---|
+| D_loss → 0, G_loss → ∞ | Discriminador demasiado fuerte | Reducir lr de D o entrenar G más veces por época |
+| D_loss ≈ G_loss ≈ ln(2) ≈ 0.693 | Equilibrio teórico alcanzado | ¡Excelente! Verificar visualmente la calidad |
+| G_loss → 0 sin mejora visual | G encontró exploit de D (no aprende) | Reiniciar con pesos diferentes, usar Wasserstein loss |
+| Varianza de muestras muy baja | Mode collapse | Usar minibatch discrimination o unrolled GANs |
+| Pérdidas oscilan sin converger | Inestabilidad general | Añadir gradient penalty, usar WGAN-GP |
+
+**Proceso de análisis paso a paso para GAN**:
+```
+1. Monitorea las pérdidas cada época:
+   → D_loss y G_loss deben converger hacia ln(2) ≈ 0.693 en equilibrio Nash
+   → Grafica siempre AMBAS curvas juntas — el balance importa tanto como los valores absolutos
+
+2. Revisa D(real) y D(fake) directamente:
+   → D(real) debería estar cerca de 0.9-1.0 (discrimina bien imágenes reales)
+   → D(fake) debería acercarse a 0.5 (equilibrio: D no puede distinguir)
+   → D(fake) → 0: mode collapse del discriminador
+   → D(fake) → 1: generador engañando perfectamente (raro, pero posible)
+
+3. Inspecciona la diversidad de las generaciones:
+   → Calcula varianza de píxeles entre muestras: var < 0.01 sugiere mode collapse
+   → Cuenta clases únicas generadas (para datasets etiquetados)
+
+4. Evalúa la calidad visual progresivamente:
+   → Guarda imágenes en checkpoints regulares (cada 5-10 épocas)
+   → Compara con ejemplos reales del dataset
+   → Busca artefactos típicos: tablero de ajedrez (checkerboard artifacts), 
+     bordes irregulares, texturas repetitivas
+
+5. Verifica estabilidad:
+   → Ejecuta el entrenamiento 3 veces con seeds diferentes
+   → Si los resultados varían drásticamente: el entrenamiento es inestable
+```
+
+#### Tabla de Referencia: ¿Qué valores esperar?
+
+Para modelos entrenados en **MNIST/digits sklearn** (dataset simple):
+
+| Modelo | Métrica | Valor esperado (entrenado) | Valor sin entrenar |
+|---|---|---|---|
+| Autoencoder | MSE reconstrucción | < 0.02 | ~0.08-0.15 |
+| VAE (β=1) | MSE reconstrucción | < 0.05 | ~0.08-0.15 |
+| VAE | Silhouette Score | > 0.35 | ~0.0-0.1 |
+| VAE | KL divergencia | 5-30 nats | ~0-5 (colapso) o >100 (β muy alto) |
+| GAN | D(real) | 0.8-0.95 | ~0.5 (aleatorio) |
+| GAN | D(fake) | 0.4-0.6 (equilibrio) | ~0.5 (aleatorio) |
+| GAN | Mode coverage | 9-10/10 clases | Variable |
+
+> ⚠️ **Nota importante**: Los valores de la tabla son orientativos para el dataset **`sklearn.datasets.load_digits`** (imágenes de 8×8 píxeles). Para el dataset **MNIST completo** (28×28 píxeles), los valores de MSE serán distintos al cambiar la dimensionalidad de entrada (784 vs. 64). Para datasets aún más complejos (Fashion-MNIST, CIFAR-10), los valores cambiarán significativamente. **Siempre calibra tus expectativas en función del dataset y la capacidad del modelo.**
 
 ---
 
