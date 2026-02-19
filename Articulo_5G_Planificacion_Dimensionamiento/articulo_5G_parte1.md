@@ -159,7 +159,7 @@ válido para $10 \leq d_{3\text{D}} \leq 5000$ m, $1.5 \leq h_{\text{UT}} \leq 2
 
 Para el escenario **Urban Macro (UMa) LOS**, el modelo es bifásico:
 
-$$\text{PL}_{\text{UMa-LOS}} = \begin{cases} \text{PL}_1 = 28.0 + 22 \cdot \log_{10}(d_{3\text{D}}) + 20 \cdot \log_{10}(f_c), & d_{\text{BP}}' \leq d_{3\text{D}} \leq d_{\text{BP}}' \\ \text{PL}_2 = 28.0 + 40 \cdot \log_{10}(d_{3\text{D}}) + 20 \cdot \log_{10}(f_c) - 9 \cdot \log_{10}\!\left[(d_{\text{BP}}')^2 + (h_{\text{BS}} - h_{\text{UT}})^2\right], & d_{\text{BP}}' \leq d_{3\text{D}} \leq 5000 \end{cases} \tag{11}$$
+$$\text{PL}_{\text{UMa-LOS}} = \begin{cases} \text{PL}_1 = 28.0 + 22 \cdot \log_{10}(d_{3\text{D}}) + 20 \cdot \log_{10}(f_c), & 10 \leq d_{3\text{D}} \leq d_{\text{BP}}' \\ \text{PL}_2 = 28.0 + 40 \cdot \log_{10}(d_{3\text{D}}) + 20 \cdot \log_{10}(f_c) - 9 \cdot \log_{10}\!\left[(d_{\text{BP}}')^2 + (h_{\text{BS}} - h_{\text{UT}})^2\right], & d_{\text{BP}}' < d_{3\text{D}} \leq 5000 \end{cases} \tag{11}$$
 
 donde $d_{\text{BP}}' = 4 \cdot h_{\text{BS}}' \cdot h_{\text{UT}}' \cdot f_c / c$ es la distancia de punto de quiebre (breakpoint distance), con $h_{\text{BS}}' = h_{\text{BS}} - 1.0$ m y $h_{\text{UT}}' = h_{\text{UT}} - 1.0$ m siendo las alturas efectivas del transmisor y receptor respectivamente [22]. La discontinuidad en el exponente de pérdida ($n = 2.2$ antes del breakpoint, $n = 4.0$ después) refleja la transición entre la zona de campo lejano cercano, donde domina la componente directa, y la zona de campo lejano distante, donde aparece la interferencia destructiva con la reflexión en el suelo (efecto two-ray).
 
@@ -205,7 +205,7 @@ El método de Monte Carlo para el análisis de cobertura en 5G consiste en: (i) 
 
 $$N_{\text{MC}} \geq \frac{\ln(2/\delta)}{2\epsilon^2} \tag{18}$$
 
-Para un error de estimación $\epsilon = 0.01$ (1%) y una confianza del 95% ($\delta = 0.05$), se requieren al menos $N_{\text{MC}} \geq 18.445 / (2 \times 0.0001) \approx 18.445 / 0.0002 = 92.224$ realizaciones, es decir, aproximadamente $10^5$ usuarios simulados, un número computacionalmente manejable con los recursos de computación actuales.
+Para un error de estimación $\epsilon = 0.01$ (1%) y una confianza del 95% ($\delta = 0.05$), se requieren al menos $N_{\text{MC}} \geq \ln(2/0.05) / (2 \times 0.01^2) = 3.689 / 0.0002 \approx 92{,}224$ realizaciones, es decir, del orden de $9 \times 10^4$ usuarios simulados, un número computacionalmente manejable con los recursos de computación actuales.
 
 ---
 
