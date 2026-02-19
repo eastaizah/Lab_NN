@@ -212,7 +212,7 @@ Sin normalización:           Con normalización (Z-score):
 
 **Importante:** la media y desviación estándar deben calcularse **sólo** sobre el conjunto de entrenamiento y luego aplicarse a validación y test; de lo contrario, estaríamos filtrando información futura al modelo (data leakage). La fórmula de normalización es:
 
-```
+```text
 X_normalizado = (X - μ_train) / (σ_train + ε)
 
 donde:
@@ -844,7 +844,7 @@ La **regularización L1** (*Lasso*) usa `Ω(W) = Σ|Wᵢ|`. Su gradiente es `λ�
 
 | Propiedad | L1 (Lasso) | L2 (Ridge / Weight Decay) |
 |-----------|-----------|--------------------------|
-| Fórmula | λ·Σ\|W\| | λ/2·Σ(W²) |
+| Fórmula | λ·Σ&#124;W&#124; | λ/2·Σ(W²) |
 | Tipo de solución | Dispersa (muchos ceros) | Densa (pesos pequeños) |
 | Selección de features | **Sí** (implícita) | No |
 | Diferenciable en W=0 | No (problema numérico) | Sí |
@@ -852,7 +852,7 @@ La **regularización L1** (*Lasso*) usa `Ω(W) = Σ|Wᵢ|`. Su gradiente es `λ�
 
 **Cómo elegir lambda:** Un `λ` muy pequeño no penaliza suficientemente y el overfitting persiste; un `λ` muy grande fuerza todos los pesos a cero y el modelo pierde capacidad expresiva (underfitting). La práctica estándar es búsqueda en escala logarítmica:
 
-```
+```text
 Valores típicos a evaluar: λ ∈ {0.1, 0.01, 0.001, 0.0001}
 
 λ = 0.1    → Regularización fuerte, riesgo de underfitting
