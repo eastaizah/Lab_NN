@@ -106,7 +106,7 @@ La red procesa un elemento de la secuencia a la vez, actualizando su estado ocul
 
 ### Motivación Histórica y Estado del Arte
 
-Las RNNs tienen raíces en la década de 1980 (Rumelhart et al., 1986). Los LSTM fueron introducidos en 1997 por Hochreiter y Schmidhuber como solución al problema del gradiente desvaneciente. Durante los años 2010, dominaron tareas de NLP, reconocimiento de voz y predicción de series de tiempo.
+Las RNNs tienen raíces en la década de 1980 (Rumelhart et al., 1986). Los LSTM fueron introducidos en 1997 por Hochreiter y Schmidhuber como solución al problema del gradiente desvaneciente. En 2014, Cho et al. propusieron las **GRU (Gated Recurrent Units)**, una simplificación del LSTM con solo dos puertas que reduce el número de parámetros manteniendo una capacidad similar; las GRUs se convirtieron rápidamente en la alternativa más popular al LSTM. Durante los años 2010, LSTM y GRU dominaron tareas de NLP, reconocimiento de voz y predicción de series de tiempo.
 
 Con la llegada de los **Transformers** (Vaswani et al., 2017, que estudiarás en el Lab 12), las RNNs cedieron terreno en NLP de alta capacidad. Sin embargo, siguen siendo fundamentales para:
 
