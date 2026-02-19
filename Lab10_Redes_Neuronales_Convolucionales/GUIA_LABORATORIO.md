@@ -878,6 +878,26 @@ print(f"Logits: {salida_test.detach().cpu().numpy().round(3)}")
 
 ### 3.2 Entrenamiento en MNIST
 
+Con la arquitectura definida en la sección anterior, el siguiente paso es **entrenar la red sobre el conjunto de datos MNIST** y monitorear su evolución. Este proceso incluye tres etapas fundamentales:
+
+1. **Preparación de los datos**: Se aplican transformaciones de *data augmentation* (rotaciones aleatorias y traslaciones) solo durante el entrenamiento para aumentar la variabilidad del conjunto y reducir el sobreajuste. El conjunto de prueba solo se normaliza, sin augmentación, para obtener una evaluación imparcial.
+
+2. **Configuración del entrenamiento**: Se usa el optimizador **Adam** con tasa de aprendizaje inicial de `0.001` y regularización L2 (`weight_decay=1e-4`). Un *learning rate scheduler* `StepLR` reduce la tasa de aprendizaje a la mitad cada 5 épocas, permitiendo un ajuste fino progresivo. La función de pérdida es **CrossEntropyLoss**, estándar para clasificación multiclase.
+
+3. **Ciclo de entrenamiento**: En cada época se ejecuta una pasada completa sobre los 60,000 ejemplos de entrenamiento (divididos en *mini-batches* de 128), seguida de una evaluación sobre los 10,000 ejemplos de prueba. El modelo con mejor precisión de validación se guarda en disco automáticamente.
+
+> 💡 **Conceptos clave**: El **scheduler de tasa de aprendizaje** evita que el optimizador "salte" sobre el mínimo cuando la red ya converge. El parámetro `weight_decay` agrega una penalización L2 a los pesos, actuando como regularizador implícito.
+
+**Resultados esperados al final del entrenamiento (10 épocas):**
+
+| Métrica | Valor típico |
+|---------|-------------|
+| Precisión de entrenamiento | ~99.5% |
+| Precisión de validación | ~99.0–99.3% |
+| Pérdida de validación final | ~0.03–0.05 |
+
+Al ejecutar el código observarás las **curvas de aprendizaje**: la pérdida debe descender suavemente y la precisión debe subir hasta estabilizarse en valores cercanos al 99%. Una brecha pequeña entre las curvas de entrenamiento y validación indica buena generalización.
+
 ```python
 # ============================================================
 # ENTRENAMIENTO EN MNIST
@@ -1282,6 +1302,34 @@ for nombre, red in [("Sin Skip", RedProfundaSinSkip(8)),
 
 ### 4.2 Transfer Learning con PyTorch
 
+El **Transfer Learning** consiste en reutilizar una red neuronal previamente entrenada en un conjunto de datos grande (típicamente **ImageNet**, con más de 1.2 millones de imágenes y 1,000 clases) para resolver un problema diferente con menos datos y menor costo computacional. En lugar de inicializar los pesos aleatoriamente, se parte de representaciones ya aprendidas — bordes, texturas, formas — que son útiles en la mayoría de los dominios visuales.
+
+#### ¿Por qué funciona el Transfer Learning?
+
+Las primeras capas de una CNN aprenden detectores de características **genéricos** (bordes, esquinas, gradientes de color) que son útiles en casi cualquier tarea de visión. Solo las capas más profundas aprenden representaciones específicas del dominio. Congelar o reutilizar estas capas tempranas permite aprovechar ese conocimiento sin necesidad de datos masivos.
+
+#### Dos estrategias principales
+
+Existen dos enfoques para adaptar un modelo pre-entrenado a una nueva tarea:
+
+| Estrategia | Descripción | Parámetros entrenados | Cuándo usarla |
+|---|---|---|---|
+| **Feature Extraction** | Se congela todo el backbone; solo se entrena una nueva cabeza de clasificación | < 1% del total | Dataset pequeño (< 1,000 imágenes) o dominio muy similar a ImageNet |
+| **Fine-Tuning** | Se descongelan las últimas N capas del backbone y se ajustan junto con la nueva cabeza | 20–80% del total | Dataset moderado (1,000–50,000 imágenes) o dominio diferente al de pre-entrenamiento |
+
+**Guía de selección rápida:**
+
+- 🟢 **Pocos datos + dominio similar** → Feature Extraction pura (riesgo de overfitting con fine-tuning)
+- 🟡 **Datos moderados + dominio similar** → Fine-Tuning de las últimas capas
+- 🟠 **Muchos datos + dominio diferente** → Fine-Tuning completo o entrenamiento desde cero
+- 🔵 **Muchos datos + dominio similar** → Fine-Tuning completo con LR pequeño
+
+#### ¿Qué aprenderás en esta sección?
+
+El código siguiente implementa ambas estrategias sobre **ResNet-18**, una arquitectura clásica con ~11 millones de parámetros. Podrás comparar cuántos parámetros se entrenan en cada caso y entender el impacto práctico de cada decisión de diseño.
+
+> ⚠️ **Nota**: En el código se usa `pretrained=False` por razones de reproducibilidad en el laboratorio. En producción, usa `pretrained=True` para cargar los pesos de ImageNet y obtener el beneficio completo del Transfer Learning.
+
 ```python
 # ============================================================
 # TRANSFER LEARNING — ESTRATEGIAS
@@ -1375,6 +1423,36 @@ print("  Muchos datos + similar          → Fine-Tuning completo")
 ## 📊 Análisis de Rendimiento
 
 ### Comparación CNN vs Red Densa en MNIST
+
+Una pregunta fundamental en el diseño de arquitecturas es: **¿cuánto mejor es una CNN que una red completamente densa para imágenes?** Esta sección realiza un *benchmark* riguroso que compara ambos enfoques en condiciones controladas.
+
+#### ¿Qué se mide en este benchmark?
+
+Se evalúan tres dimensiones clave para una comparación justa:
+
+| Métrica | Descripción | Ventaja esperada |
+|---|---|---|
+| **Número de parámetros** | Cuántos pesos entrenables tiene cada arquitectura | CNN usa órdenes de magnitud menos |
+| **Tiempo de entrenamiento** | Segundos por época en el mismo hardware | CNN puede ser más lenta por conv, pero más eficiente por parámetro |
+| **Precisión de prueba** | Accuracy en los 10,000 ejemplos de MNIST | CNN supera a la red densa |
+
+#### ¿Por qué las CNNs son más eficientes?
+
+La red densa trata cada píxel como una característica independiente y aprende conexiones globales desde el principio (28×28 = 784 entradas → 512 neuronas = **401,920 pesos solo en la primera capa**). La CNN, en cambio, usa **pesos compartidos**: un filtro 3×3 con 32 canales tiene apenas 288 parámetros y se aplica a toda la imagen, detectando el mismo patrón en cualquier posición.
+
+Esta propiedad se conoce como **equivariancia traslacional**: si un patrón se desplaza en la imagen, la activación del filtro también se desplaza, pero el filtro en sí no cambia. Esto no ocurre en redes densas.
+
+#### El concepto de *campo receptivo* (*Receptive Field*)
+
+Otra ventaja estructural de las CNNs es el **campo receptivo**: cada neurona en una capa profunda "ve" una región cada vez más grande de la imagen original. Con tres capas convolucionales 3×3 y dos MaxPool 2×2, una neurona en la última capa tiene acceso a información de toda la imagen de forma jerárquica y eficiente.
+
+| Capa | Campo receptivo aprox. | Resolución del feature map |
+|---|---|---|
+| Conv1 (después de MaxPool) | 6×6 px | 14×14 |
+| Conv2 (después de MaxPool) | 14×14 px | 7×7 |
+| Conv3 | 28×28 px (toda la imagen) | 7×7 |
+
+> 💡 **Lo que debes observar**: La CNN alcanza mayor precisión con **menos parámetros**. Esto demuestra que la **inducción de sesgo arquitectónico** (asumir que los patrones locales y espaciales son importantes) es una ventaja, no una limitación.
 
 ```python
 # ============================================================
