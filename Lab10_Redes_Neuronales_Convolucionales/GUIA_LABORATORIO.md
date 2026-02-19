@@ -1328,7 +1328,7 @@ Existen dos enfoques para adaptar un modelo pre-entrenado a una nueva tarea:
 
 El código siguiente implementa ambas estrategias sobre **ResNet-18**, una arquitectura clásica con ~11 millones de parámetros. Podrás comparar cuántos parámetros se entrenan en cada caso y entender el impacto práctico de cada decisión de diseño.
 
-> ⚠️ **Nota**: En el código se usa `pretrained=False` por razones de reproducibilidad en el laboratorio. En producción, usa `pretrained=True` para cargar los pesos de ImageNet y obtener el beneficio completo del Transfer Learning.
+> ⚠️ **Nota sobre `pretrained=False`**: El código usa `pretrained=False` para evitar la descarga de ~46 MB de pesos durante el laboratorio y garantizar la reproducibilidad sin conexión a Internet. Sin embargo, el objetivo de esta sección es **comprender la mecánica** del Transfer Learning: cómo congelar/descongelar capas y modificar la cabeza clasificadora. En un proyecto real, cambia a `pretrained=True` para inicializar con los pesos de ImageNet y obtener el beneficio completo — típicamente alcanzarás una precisión mucho mayor con muchos menos datos y épocas de entrenamiento.
 
 ```python
 # ============================================================
